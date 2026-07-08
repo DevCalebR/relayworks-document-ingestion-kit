@@ -1,0 +1,300 @@
+:root {
+  --background: #f6f7f9;
+  --foreground: #17202e;
+  --muted: #657084;
+  --panel: #ffffff;
+  --border: #dce1e8;
+  --accent: #126355;
+  --accent-dark: #0d4a3f;
+  --danger: #9b1c1c;
+  --danger-bg: #fff0f0;
+  --shadow: 0 20px 60px rgba(23, 32, 46, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.page-shell {
+  min-height: 100vh;
+  padding: 40px;
+}
+
+.workspace {
+  margin: 0 auto;
+  max-width: 1180px;
+}
+
+.intro {
+  margin-bottom: 30px;
+  max-width: 760px;
+}
+
+.brand-row {
+  align-items: center;
+  color: var(--accent);
+  display: flex;
+  font-size: 15px;
+  font-weight: 800;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.mark {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 8px;
+  color: #fff;
+  display: flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 54px;
+  letter-spacing: 0;
+  line-height: 1.02;
+  margin-bottom: 18px;
+}
+
+h2 {
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.intro p,
+.muted {
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.tool-grid {
+  align-items: stretch;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(420px, 1.5fr);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.upload-panel,
+.preview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 26px;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.drop-zone {
+  align-items: center;
+  border: 1px dashed #aab5c4;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 178px;
+  padding: 24px;
+  text-align: center;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.drop-zone:hover {
+  background: #f7faf9;
+  border-color: var(--accent);
+}
+
+.drop-zone input {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.drop-zone span {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 800;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.drop-zone small {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.primary-button,
+.actions button {
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  min-height: 44px;
+  padding: 0 18px;
+}
+
+.primary-button {
+  background: var(--accent);
+  color: #fff;
+  width: 100%;
+}
+
+.primary-button:not(:disabled):hover {
+  background: var(--accent-dark);
+}
+
+.preview-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.actions button {
+  background: #eef3f2;
+  color: var(--accent-dark);
+}
+
+.actions button:not(:disabled):hover {
+  background: #dfeae8;
+}
+
+.markdown-box,
+.error-box {
+  border-radius: 8px;
+  line-height: 1.55;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.markdown-box {
+  background: #101820;
+  color: #eef7f5;
+  flex: 1;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 14px;
+  min-height: 430px;
+  padding: 22px;
+}
+
+.markdown-box.empty {
+  color: #8ea09d;
+}
+
+.error-box {
+  background: var(--danger-bg);
+  border: 1px solid #ffc9c9;
+  color: var(--danger);
+  font-size: 14px;
+  padding: 14px;
+}
+
+@media (max-width: 860px) {
+  .page-shell {
+    padding: 24px;
+  }
+
+  h1 {
+    font-size: 40px;
+  }
+
+  .tool-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 520px) {
+  .page-shell {
+    padding: 18px;
+  }
+
+  h1 {
+    font-size: 34px;
+  }
+
+  .upload-panel,
+  .preview-panel {
+    padding: 18px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+}

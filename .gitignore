@@ -1,0 +1,19 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+
+# Local document data
+storage/uploads/*
+storage/output/*
+
+# Keep storage folders present when needed locally, but never commit customer files.
+!storage/uploads/.gitkeep
+!storage/output/.gitkeep
