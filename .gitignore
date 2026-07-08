@@ -13,7 +13,11 @@ frontend/tsconfig.tsbuildinfo
 # Local document data
 storage/uploads/*
 storage/output/*
+storage/zips/*
+storage/leads/*
 
 # Keep storage folders present when needed locally, but never commit customer files.
 !storage/uploads/.gitkeep
 !storage/output/.gitkeep
+!storage/zips/.gitkeep
+!storage/leads/.gitkeep
