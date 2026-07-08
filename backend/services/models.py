@@ -12,7 +12,8 @@ TemplateKey = Literal[
     "knowledge_base",
     "technical_documentation",
     "blog_draft",
-    "api_documentation",
+    "training_manual",
+    "clean_markdown_export",
 ]
 
 
@@ -64,6 +65,10 @@ class Document:
 class TransformedDocument:
     template: TemplateKey
     template_label: str
+    source_markdown: str
+    source_html: str
+    source_text: str
+    source_json_data: dict[str, Any]
     markdown: str
     html: str
     text: str
@@ -78,4 +83,3 @@ class ExportedFile:
     path: Path
     size_bytes: int
     url: str
-

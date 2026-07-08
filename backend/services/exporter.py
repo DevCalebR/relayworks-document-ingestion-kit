@@ -28,13 +28,13 @@ def slugify_stem(filename: str) -> str:
 
 def output_content(transformed: TransformedDocument, output_format: OutputFormat) -> str:
     if output_format == "markdown":
-        return transformed.markdown
+        return transformed.source_markdown
     if output_format == "html":
-        return transformed.html
+        return transformed.source_html
     if output_format == "json":
-        return json.dumps(transformed.json_data, indent=2)
+        return json.dumps(transformed.source_json_data, indent=2)
     if output_format == "text":
-        return transformed.text
+        return transformed.source_text
     raise ValueError(f"Unsupported output format: {output_format}")
 
 
@@ -71,22 +71,27 @@ def write_report(
     stem = slugify_stem(filename)
     summary = transformed.summary
     lines = [
-        "DocForge AI Processing Report",
+        "# DocForge AI Processing Report",
         "",
-        "Successfully parsed",
-        f"{summary['pages']} pages",
-        f"{summary['heading_count']} headings",
-        f"{summary['table_count']} tables",
-        f"{summary['image_count']} images",
-        f"{summary['word_count']} words",
+        "## Processing Summary",
         "",
-        "Markdown generated",
-        "JSON generated",
-        "HTML generated",
-        "Plain text generated",
-        "Ready for AI workflows",
+        "- Successfully processed",
+        f"- {summary['pages']} pages",
+        f"- {summary['heading_count']} headings",
+        f"- {summary['table_count']} tables",
+        f"- {summary['image_count']} images",
+        f"- {summary['word_count']} words",
+        "",
+        "## Generated Outputs",
+        "",
+        "- Markdown generated",
+        "- Structured JSON generated",
+        "- Clean HTML generated",
+        "- Plain text generated",
+        "- Selected goal output generated",
+        "- Ready for AI workflows",
     ]
-    path = export_dir / f"{stem}-processing-report.txt"
+    path = export_dir / f"{stem}-processing-report.md"
     path.write_text("\n".join(lines), encoding="utf-8")
     return ExportedFile(
         format="text",
@@ -120,15 +125,23 @@ def write_download_package(
     job_id: str,
     exports: dict[OutputFormat, ExportedFile],
     report: ExportedFile,
+    goal_output: ExportedFile,
     images: list,
     zip_dir: Path,
 ) -> ExportedFile:
     zip_dir.mkdir(parents=True, exist_ok=True)
     path = zip_dir / f"docforge-package-{job_id}.zip"
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as zip_file:
-        for exported in exports.values():
-            zip_file.write(exported.path, exported.filename)
-        zip_file.write(report.path, report.filename)
+        package_names = {
+            "markdown": "document.md",
+            "html": "document.html",
+            "json": "document.json",
+            "text": "document.txt",
+        }
+        for output_format, exported in exports.items():
+            zip_file.write(exported.path, package_names[output_format])
+        zip_file.write(goal_output.path, "selected-goal-output.md")
+        zip_file.write(report.path, "processing-report.md")
         for image in images:
             image_path = Path(image.path)
             if image_path.exists():
@@ -141,3 +154,14 @@ def write_download_package(
         url=f"/download/{job_id}/package",
     )
 
+def write_goal_output(transformed: TransformedDocument, export_dir: Path) -> ExportedFile:
+    export_dir.mkdir(parents=True, exist_ok=True)
+    path = export_dir / "selected-goal-output.md"
+    path.write_text(transformed.markdown, encoding="utf-8")
+    return ExportedFile(
+        format="markdown",
+        filename=path.name,
+        path=path,
+        size_bytes=path.stat().st_size,
+        url="",
+    )

@@ -13,7 +13,7 @@ services/
   transformer.py
     applies rule-based templates and derives Markdown, HTML, JSON, and text
   exporter.py
-    writes downloadable outputs, reports, image ZIPs, and full packages
+    writes downloadable outputs, goal deliverables, reports, image ZIPs, and full packages
   preview.py
     shapes metadata, pipeline, images, and report data for the frontend
   models.py
@@ -49,12 +49,12 @@ Example:
 
 ```bash
 curl -F "file=@sample.pdf" \
-  "http://localhost:8000/convert?template=general_markdown"
+  "http://localhost:8000/convert?template=knowledge_base"
 ```
 
 ### `POST /convert-batch`
 
-Accepts multiple PDFs as multipart form field `files` and returns a ZIP with generated Markdown, HTML, JSON, text, reports, and `_summary.json`.
+Accepts multiple PDFs as multipart form field `files` and returns a ZIP with generated Markdown, HTML, JSON, text, selected goal outputs, reports, `batch-processing-report.md`, and `_summary.json`.
 
 Example:
 
@@ -85,6 +85,17 @@ Returns an extracted image from a completed job.
 
 Saves a bulk conversion lead to `storage/leads/leads.jsonl`.
 
+Payload fields:
+
+- `name`
+- `email`
+- `company`
+- `document_count`
+- `document_type`
+- `goal`
+- `urgency`
+- `message`
+
 ## Notes
 
 - Uploads are saved to `storage/uploads/`.
@@ -92,4 +103,3 @@ Saves a bulk conversion lead to `storage/leads/leads.jsonl`.
 - ZIP files are saved to `storage/zips/`.
 - Bulk conversion leads are appended to `storage/leads/leads.jsonl`.
 - CORS is configured for `http://localhost:3000`.
-

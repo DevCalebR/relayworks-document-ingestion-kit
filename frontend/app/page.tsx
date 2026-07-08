@@ -13,7 +13,10 @@ type TemplateKey =
   | "knowledge_base"
   | "technical_documentation"
   | "blog_draft"
-  | "api_documentation";
+  | "training_manual"
+  | "clean_markdown_export";
+
+type WorkspaceTab = "markdown" | "preview" | "html" | "json" | "text" | "images" | "report";
 
 type ExportFile = {
   format: OutputFormat;
@@ -58,6 +61,7 @@ type BatchSummary = {
   total_files: number;
   successful_files: number;
   failed_files: number;
+  total_output_files: number;
   filenames: string[];
   errors: Array<{ filename: string; error: string }>;
 };
@@ -68,6 +72,8 @@ type LeadForm = {
   company: string;
   document_count: string;
   document_type: string;
+  goal: string;
+  urgency: string;
   message: string;
 };
 
@@ -77,30 +83,35 @@ const emptyLeadForm: LeadForm = {
   company: "",
   document_count: "",
   document_type: "",
+  goal: "",
+  urgency: "",
   message: "",
 };
 
-const templates: Array<{ key: TemplateKey; label: string; description: string }> = [
-  { key: "general_markdown", label: "General Markdown", description: "Clean source content for broad AI workflows." },
-  { key: "rag_dataset", label: "RAG Dataset", description: "Chunked sections with source context." },
-  { key: "study_notes", label: "Study Notes", description: "Topic-focused notes for learning and review." },
-  { key: "meeting_notes", label: "Meeting Notes", description: "Summary, decisions, and action sections." },
-  { key: "knowledge_base", label: "Knowledge Base", description: "Article-style content for support libraries." },
+const goals: Array<{ key: TemplateKey; label: string; description: string }> = [
+  { key: "knowledge_base", label: "AI Knowledge Base", description: "Structured articles for searchable team knowledge." },
+  { key: "rag_dataset", label: "RAG Dataset", description: "Sectioned content with source context for retrieval workflows." },
+  { key: "study_notes", label: "Study Guide", description: "Topic-focused notes for learning and review." },
   {
     key: "technical_documentation",
     label: "Technical Documentation",
-    description: "Overview and reference-oriented structure.",
+    description: "Overview and reference-ready sections for technical teams.",
   },
-  { key: "blog_draft", label: "Blog Draft", description: "Editorial draft with main points." },
-  { key: "api_documentation", label: "API Documentation", description: "Reference shell for technical content." },
+  { key: "blog_draft", label: "Blog Draft", description: "Editorial outline with main points and draft body." },
+  { key: "meeting_notes", label: "Meeting Notes", description: "Summary, decisions, and action-ready sections." },
+  { key: "training_manual", label: "Training Manual", description: "Learning objectives, training sections, and review prompts." },
+  { key: "clean_markdown_export", label: "Clean Markdown Export", description: "Clean source content for broad AI workflows." },
 ];
 
-const outputLabels: Record<OutputFormat, string> = {
-  markdown: "Markdown",
-  html: "Clean HTML",
-  json: "Structured JSON",
-  text: "Plain Text",
-};
+const workspaceTabs: Array<{ key: WorkspaceTab; label: string }> = [
+  { key: "markdown", label: "Markdown" },
+  { key: "preview", label: "Rendered Preview" },
+  { key: "html", label: "Clean HTML" },
+  { key: "json", label: "Structured JSON" },
+  { key: "text", label: "Plain Text" },
+  { key: "images", label: "Images" },
+  { key: "report", label: "Processing Report" },
+];
 
 const useCases = [
   ["AI teams", "Prepare knowledge-ready content for assistants, retrieval systems, and evaluation sets."],
@@ -111,9 +122,9 @@ const useCases = [
 ];
 
 const pricing = [
-  ["Free document demo", "Process individual files and inspect the complete AI-ready package."],
-  ["Bulk conversion service", "Send document sets and receive structured content packages."],
-  ["Team platform roadmap", "Shared workspaces, job history, and managed workflows after demand is proven."],
+  ["$25 cleanup", "Small document cleanup and AI-ready Markdown delivery."],
+  ["$75-$150 package", "Report or manual conversion with Markdown, JSON, HTML, and text outputs."],
+  ["$250+ bulk package", "Multi-document conversion with download package and processing report."],
 ];
 
 function errorMessageFromResponse(payload: unknown): string {
@@ -257,8 +268,8 @@ export default function Home() {
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [singleFile, setSingleFile] = useState<File | null>(null);
   const [batchFiles, setBatchFiles] = useState<File[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey>("general_markdown");
-  const [selectedOutput, setSelectedOutput] = useState<OutputFormat>("markdown");
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey>("knowledge_base");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("markdown");
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [editableMarkdown, setEditableMarkdown] = useState("");
   const [singleStatus, setSingleStatus] = useState("Ready for a PDF.");
@@ -275,6 +286,8 @@ export default function Home() {
 
   const renderedPreview = useMemo(() => markdownToHtml(editableMarkdown), [editableMarkdown]);
   const batchSize = batchFiles.reduce((total, file) => total + file.size, 0);
+  const selectedGoal = goals.find((goal) => goal.key === selectedTemplate) ?? goals[0];
+  const structuredJson = result ? JSON.stringify(result.structured_json, null, 2) : "";
 
   function onSingleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null;
@@ -375,6 +388,7 @@ export default function Home() {
             total_files: batchFiles.length,
             successful_files: 0,
             failed_files: 0,
+            total_output_files: 0,
             filenames: batchFiles.map((file) => file.name),
             errors: [],
           };
@@ -400,12 +414,6 @@ export default function Home() {
     window.setTimeout(() => setCopyState("Copy"), 1600);
   }
 
-  function downloadSelectedOutput() {
-    if (!result) return;
-    const exportFile = result.exports[selectedOutput];
-    window.open(absoluteUrl(exportFile.url), "_blank");
-  }
-
   function downloadReport() {
     if (!result) return;
     window.open(absoluteUrl(result.report.download.url), "_blank");
@@ -427,6 +435,7 @@ export default function Home() {
     setCopyState("Copy");
     setBatchSummary(null);
     setBatchZip(null);
+    setActiveTab("markdown");
   }
 
   function updateLeadField(field: keyof LeadForm, value: string) {
@@ -469,9 +478,9 @@ export default function Home() {
             <span>DocForge AI</span>
           </a>
           <div className="nav-links">
-            <a href="#converter">Platform</a>
+            <a href="#converter">Workspace</a>
             <a href="#use-cases">Use cases</a>
-            <a href="#pricing">Pricing</a>
+            <a href="#service">Service</a>
             <a href="#bulk">Bulk conversion</a>
           </div>
         </nav>
@@ -480,12 +489,12 @@ export default function Home() {
           <div className="hero-copy">
             <h1>Turn complex documents into AI-ready content packages.</h1>
             <p>
-              DocForge AI processes PDFs into Markdown, clean HTML, structured JSON, plain text,
-              extracted images, and processing reports for modern AI workflows.
+              DocForge AI turns PDFs, reports, and manuals into knowledge-ready content,
+              structured files, extracted images, and complete download packages for AI workflows.
             </p>
             <div className="cta-row">
               <a className="primary-link" href="#converter">
-                Process a document
+                Open document workspace
               </a>
               <a className="secondary-link" href="#bulk">
                 Request bulk conversion
@@ -495,14 +504,14 @@ export default function Home() {
 
           <aside className="hero-proof" aria-label="DocForge AI workflow">
             <div className="workflow-card">
-              {["Upload", "Parse", "Transform", "Export", "Complete"].map((step, index) => (
+              {["Upload", "Read", "Prepare", "Package", "Complete"].map((step, index) => (
                 <div key={step}>
                   <div className={index < 3 ? "workflow-step active" : "workflow-step"}>{step}</div>
                   {index < 4 ? <div className="workflow-line" /> : null}
                 </div>
               ))}
             </div>
-            <pre className="mini-preview">{`Document package\n\n- Markdown\n- Clean HTML\n- Structured JSON\n- Plain text\n- Extracted images\n- Processing report`}</pre>
+            <pre className="mini-preview">{`Complete package\n\n- document.md\n- document.html\n- document.json\n- document.txt\n- selected-goal-output.md\n- processing-report.md`}</pre>
           </aside>
         </div>
       </section>
@@ -511,8 +520,8 @@ export default function Home() {
         <div className="section-heading">
           <h2>Document processing workspace</h2>
           <p>
-            Choose a transformation template, process a PDF, inspect the output, and download the
-            format your workflow needs.
+            Choose what you want to create, process a PDF, inspect every output, and download a
+            complete package for your workflow.
           </p>
         </div>
 
@@ -530,13 +539,13 @@ export default function Home() {
             {mode === "single" ? (
               <>
                 <div>
-                  <p className="label">Transformation template</p>
-                  <h3 id="upload-title">Choose your output shape</h3>
+                  <p className="label">Goal-based deliverables</p>
+                  <h3 id="upload-title">What do you want to create?</h3>
                   <p className="muted">{singleStatus}</p>
                 </div>
 
-                <div className="template-grid" role="radiogroup" aria-label="Transformation templates">
-                  {templates.map((template) => (
+                <div className="template-grid" role="radiogroup" aria-label="Document goals">
+                  {goals.map((template) => (
                     <button
                       className={selectedTemplate === template.key ? "template-card active" : "template-card"}
                       key={template.key}
@@ -565,6 +574,21 @@ export default function Home() {
                   <p className="label">Bulk document conversion</p>
                   <h3 id="upload-title">Create a download package</h3>
                   <p className="muted">{batchStatus}</p>
+                </div>
+
+                <div className="batch-metrics">
+                  <div>
+                    <span>Selected files</span>
+                    <strong>{batchFiles.length}</strong>
+                  </div>
+                  <div>
+                    <span>Total size</span>
+                    <strong>{formatBytes(batchSize)}</strong>
+                  </div>
+                  <div>
+                    <span>Package type</span>
+                    <strong>ZIP</strong>
+                  </div>
                 </div>
 
                 <label className="drop-zone">
@@ -600,16 +624,19 @@ export default function Home() {
           <section className="panel result-panel" aria-labelledby="result-title">
             <div className="preview-header">
               <div>
-                <p className="label">Processing pipeline</p>
-                <h3 id="result-title">{result ? result.template_label : "Result"}</h3>
+                <p className="label">{result ? "Processing complete" : "Document workspace"}</p>
+                <h3 id="result-title">{result ? result.filename : selectedGoal.label}</h3>
+                <p className="muted">
+                  {result ? `${result.template_label} package is ready.` : "Your outputs will appear here after processing."}
+                </p>
               </div>
-              <button className="ghost-compact" type="button" onClick={downloadPackage} disabled={!result}>
-                Download package
+              <button className="primary-compact" type="button" onClick={downloadPackage} disabled={!result}>
+                Download Complete Package
               </button>
             </div>
 
             <div className="pipeline-row">
-              {(result?.pipeline ?? ["Upload", "Parse", "Transform", "Export", "Complete"].map((label) => ({ label, status: "waiting" }))).map(
+              {(result?.pipeline ?? ["Upload", "Read", "Prepare", "Package", "Complete"].map((label) => ({ label, status: "waiting" }))).map(
                 (step) => (
                   <span className={step.status === "complete" ? "pipeline-chip complete" : "pipeline-chip"} key={step.label}>
                     {step.label}
@@ -638,83 +665,106 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="export-bar">
-              <label>
-                Output format
-                <select value={selectedOutput} onChange={(event) => setSelectedOutput(event.target.value as OutputFormat)}>
-                  {Object.entries(outputLabels).map(([value, label]) => (
-                    <option value={value} key={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="button" onClick={downloadSelectedOutput} disabled={!result}>
-                Download {outputLabels[selectedOutput]}
-              </button>
-              <button type="button" onClick={copyMarkdown} disabled={!editableMarkdown}>
-                {copyState}
-              </button>
-            </div>
-
-            <div className="split-view">
-              <label className="markdown-editor">
-                <span>Markdown</span>
-                <textarea value={editableMarkdown} onChange={(event) => setEditableMarkdown(event.target.value)} />
-              </label>
-              <div className="rendered-preview">
-                <span>Rendered Preview</span>
-                <div className="rendered-body" dangerouslySetInnerHTML={{ __html: renderedPreview || "<p>Your preview will appear here after processing.</p>" }} />
-              </div>
-            </div>
-
-            {result ? (
-              <div className="processing-report">
-                <div>
-                  <strong>Processing summary</strong>
-                  <pre>{result.report.text}</pre>
-                </div>
-                <button type="button" onClick={downloadReport}>
-                  Download report
+            <div className="workspace-tabs" role="tablist" aria-label="Document outputs">
+              {workspaceTabs.map((tab) => (
+                <button
+                  className={activeTab === tab.key ? "active" : ""}
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  {tab.label}
                 </button>
-              </div>
-            ) : null}
+              ))}
+            </div>
 
-            {result?.images.length ? (
-              <div className="image-panel">
-                <div className="image-panel-header">
-                  <div>
-                    <strong>Extracted images</strong>
-                    <p>{result.images.length} images included in this document package.</p>
+            <div className="tab-surface">
+              {activeTab === "markdown" ? (
+                <label className="markdown-editor full">
+                  <span>
+                    Markdown
+                    <button type="button" onClick={copyMarkdown} disabled={!editableMarkdown}>
+                      {copyState}
+                    </button>
+                  </span>
+                  <textarea value={editableMarkdown} onChange={(event) => setEditableMarkdown(event.target.value)} />
+                </label>
+              ) : null}
+
+              {activeTab === "preview" ? (
+                <div className="rendered-preview full">
+                  <span>Rendered Preview</span>
+                  <div className="rendered-body" dangerouslySetInnerHTML={{ __html: renderedPreview || "<p>Your preview will appear here after processing.</p>" }} />
+                </div>
+              ) : null}
+
+              {activeTab === "html" ? (
+                <pre className="output-code">{result?.html || "Clean HTML will appear here after processing."}</pre>
+              ) : null}
+
+              {activeTab === "json" ? (
+                <pre className="output-code">{structuredJson || "Structured JSON will appear here after processing."}</pre>
+              ) : null}
+
+              {activeTab === "text" ? (
+                <pre className="output-code">{result?.text || "Plain text will appear here after processing."}</pre>
+              ) : null}
+
+              {activeTab === "images" ? (
+                <div className="image-panel">
+                  <div className="image-panel-header">
+                    <div>
+                      <strong>Extracted images</strong>
+                      <p>
+                        {result?.images.length
+                          ? `${result.images.length} images included in this document package.`
+                          : "Extracted images will appear here when the document includes them."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => result?.images_zip && window.open(absoluteUrl(result.images_zip.url), "_blank")}
+                      disabled={!result?.images_zip}
+                    >
+                      Download images
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => result.images_zip && window.open(absoluteUrl(result.images_zip.url), "_blank")}
-                    disabled={!result.images_zip}
-                  >
-                    Download images
+                  {result?.images.length ? (
+                    <div className="image-grid">
+                      {result.images.map((image) => (
+                        <figure key={image.filename}>
+                          <img src={absoluteUrl(image.url)} alt={image.filename} />
+                          <figcaption>
+                            <span>{image.filename}</span>
+                            <small>{formatBytes(image.size_bytes)}</small>
+                          </figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {activeTab === "report" ? (
+                <div className="processing-report">
+                  <div>
+                    <strong>Processing summary</strong>
+                    <pre>{result?.report.text || "Processing summary will appear here after processing."}</pre>
+                  </div>
+                  <button type="button" onClick={downloadReport} disabled={!result}>
+                    Download report
                   </button>
                 </div>
-                <div className="image-grid">
-                  {result.images.map((image) => (
-                    <figure key={image.filename}>
-                      <img src={absoluteUrl(image.url)} alt={image.filename} />
-                      <figcaption>
-                        <span>{image.filename}</span>
-                        <small>{formatBytes(image.size_bytes)}</small>
-                      </figcaption>
-                    </figure>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
 
             {batchSummary ? (
               <div className="batch-summary">
                 <div>
                   <strong>Bulk conversion summary</strong>
                   <p>
-                    {batchSummary.successful_files} of {batchSummary.total_files} processed.
+                    {batchSummary.successful_files} of {batchSummary.total_files} processed with{" "}
+                    {batchSummary.total_output_files} output files included.
                     {batchSummary.failed_files ? ` ${batchSummary.failed_files} need review.` : ""}
                   </p>
                 </div>
@@ -755,10 +805,40 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="section service-section" id="service">
+        <div className="section-heading">
+          <h2>Done-for-you bulk conversion</h2>
+          <p>
+            Send messy PDFs, reports, manuals, or research files and receive clean AI-ready
+            Markdown, structured content packages, extracted images, and processing summaries.
+          </p>
+        </div>
+        <div className="service-grid">
+          {[
+            ["Who it helps", "Teams, consultants, students, researchers, training groups, and AI builders."],
+            ["What you receive", "Knowledge-ready content packages with Markdown, JSON, HTML, plain text, and reports."],
+            ["Turnaround", "Fast manual delivery for small batches, with quote-based timing for larger document sets."],
+          ].map(([title, description]) => (
+            <article className="plain-card" key={title}>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </article>
+          ))}
+        </div>
+        <div className="service-cta">
+          <a className="primary-link" href="#bulk">
+            Request quote
+          </a>
+          <a className="secondary-link" href="#converter">
+            Try the workspace
+          </a>
+        </div>
+      </section>
+
       <section className="section pricing-section" id="pricing">
         <div className="section-heading">
-          <h2>Commercial path</h2>
-          <p>Start with useful conversion packages, then expand into managed team workflows.</p>
+          <h2>Manual service pricing</h2>
+          <p>Simple starting prices for private demos and first customer conversations.</p>
         </div>
         <div className="pricing-grid">
           {pricing.map(([title, description]) => (
@@ -794,7 +874,7 @@ export default function Home() {
               <input value={leadForm.company} onChange={(event) => updateLeadField("company", event.target.value)} />
             </label>
             <label>
-              Number of documents
+              Approximate document count
               <input required value={leadForm.document_count} onChange={(event) => updateLeadField("document_count", event.target.value)} />
             </label>
             <label>
@@ -805,6 +885,27 @@ export default function Home() {
                 value={leadForm.document_type}
                 onChange={(event) => updateLeadField("document_type", event.target.value)}
               />
+            </label>
+            <label>
+              Goal/output needed
+              <select required value={leadForm.goal} onChange={(event) => updateLeadField("goal", event.target.value)}>
+                <option value="">Choose goal</option>
+                {goals.map((goal) => (
+                  <option value={goal.label} key={goal.key}>
+                    {goal.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Urgency
+              <select required value={leadForm.urgency} onChange={(event) => updateLeadField("urgency", event.target.value)}>
+                <option value="">Choose timing</option>
+                <option>24-48 hours</option>
+                <option>This week</option>
+                <option>This month</option>
+                <option>Planning ahead</option>
+              </select>
             </label>
           </div>
           <label>
@@ -821,4 +922,3 @@ export default function Home() {
     </main>
   );
 }
-

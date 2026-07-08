@@ -13,7 +13,8 @@ TEMPLATE_LABELS: dict[TemplateKey, str] = {
     "knowledge_base": "Knowledge Base",
     "technical_documentation": "Technical Documentation",
     "blog_draft": "Blog Draft",
-    "api_documentation": "API Documentation",
+    "training_manual": "Training Manual",
+    "clean_markdown_export": "Clean Markdown Export",
 }
 
 
@@ -203,7 +204,8 @@ def meeting_notes(document: Document) -> str:
 
 
 def knowledge_base(document: Document) -> str:
-    parts = [f"# Knowledge Base Article: {document.metadata.filename}", ""]
+    parts = [f"# AI Knowledge Base: {document.metadata.filename}", ""]
+    parts.extend(["## Overview", "Knowledge-ready content extracted from the source document.", ""])
     for section in document.sections:
         parts.extend([f"## {section.title}", section.content.strip(), ""])
     if not document.sections:
@@ -240,21 +242,30 @@ def blog_draft(document: Document) -> str:
     ).strip()
 
 
-def api_documentation(document: Document) -> str:
+def training_manual(document: Document) -> str:
     return "\n".join(
         [
-            f"# API Documentation: {document.metadata.filename}",
+            f"# Training Manual: {document.metadata.filename}",
             "",
             "## Overview",
             strip_markdown(document.markdown),
             "",
-            "## Endpoints",
-            "- Add endpoint summaries after review",
+            "## Learning Objectives",
+            "\n".join(f"- Understand {heading}" for heading in document.headings[:8])
+            or "- Understand the key ideas in this document",
             "",
-            "## Schemas",
-            "\n".join(document.code_blocks) or "No schema blocks detected.",
+            "## Training Sections",
+            "\n".join(f"- {heading}" for heading in document.headings[:12]) or "- Review the source material",
+            "",
+            "## Review Questions",
+            "- What are the most important takeaways?",
+            "- Which details should be turned into examples or exercises?",
         ]
     ).strip()
+
+
+def clean_markdown_export(document: Document) -> str:
+    return document.markdown.strip()
 
 
 TEMPLATE_TRANSFORMERS: dict[TemplateKey, Callable[[Document], str]] = {
@@ -265,7 +276,8 @@ TEMPLATE_TRANSFORMERS: dict[TemplateKey, Callable[[Document], str]] = {
     "knowledge_base": knowledge_base,
     "technical_documentation": technical_documentation,
     "blog_draft": blog_draft,
-    "api_documentation": api_documentation,
+    "training_manual": training_manual,
+    "clean_markdown_export": clean_markdown_export,
 }
 
 
@@ -275,6 +287,8 @@ def transform_document(document: Document, template: TemplateKey = "general_mark
     text = strip_markdown(markdown)
     html = markdown_to_html(markdown)
     summary = summarize_document(document, markdown)
+    source_text = strip_markdown(document.markdown)
+    source_html = markdown_to_html(document.markdown)
     json_data = {
         "template": template,
         "template_label": TEMPLATE_LABELS.get(template, TEMPLATE_LABELS["general_markdown"]),
@@ -293,13 +307,32 @@ def transform_document(document: Document, template: TemplateKey = "general_mark
             "footnotes": document.footnotes,
         },
     }
+    source_json_data = {
+        "metadata": document.to_dict()["metadata"],
+        "summary": summarize_document(document, document.markdown),
+        "content": {
+            "markdown": document.markdown,
+            "text": source_text,
+            "sections": [section.__dict__ for section in document.sections],
+            "headings": document.headings,
+            "paragraphs": document.paragraphs,
+            "tables": document.tables,
+            "images": [image.__dict__ for image in document.images],
+            "lists": document.lists,
+            "code_blocks": document.code_blocks,
+            "footnotes": document.footnotes,
+        },
+    }
     return TransformedDocument(
         template=template,
         template_label=TEMPLATE_LABELS.get(template, TEMPLATE_LABELS["general_markdown"]),
+        source_markdown=document.markdown,
+        source_html=source_html,
+        source_text=source_text,
+        source_json_data=source_json_data,
         markdown=markdown,
         html=html,
         text=text,
         json_data=json_data,
         summary=summary,
     )
-

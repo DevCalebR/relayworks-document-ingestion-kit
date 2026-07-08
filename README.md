@@ -1,8 +1,139 @@
 # DocForge AI
 
-DocForge AI is a document processing platform that turns PDFs into AI-ready content packages. It keeps the existing single and batch PDF conversion flows, then adds a reusable transformation pipeline, structured document model, multiple exports, extracted image handling, metadata summaries, and processing reports.
+DocForge AI is a polished private-demo product for turning PDFs, reports, and manuals into AI-ready content packages. The goal is fastest first payday: sell done-for-you document conversion before adding full SaaS infrastructure.
 
-No auth, billing, database, queue, Docker, cloud storage, or hosted deployment is required for the current local/private-demo version.
+The current build supports single conversion, batch conversion, goal-based deliverables, Markdown/HTML/JSON/plain text outputs, extracted images, complete ZIP packages, processing reports, and lead capture.
+
+Do not add Supabase, Stripe, auth, Redis, cloud storage, Docker, complex admin panels, or team accounts yet.
+
+## Correct Local Path
+
+Use this repo path:
+
+```bash
+cd /Users/caleb/Documents/docforge-ai
+```
+
+Avoid the older shorthand path `/Users/caleb/docforge-ai`; commands and storage paths in this project assume the `Documents/docforge-ai` location.
+
+## Runtime Notes
+
+- Frontend: Next.js 16.2.10.
+- Recommended Node: current active Node 20+ or 22+.
+- Backend: FastAPI with `marker_single` available in the active Python environment.
+- Frontend port: `3000`.
+- Backend port: `8000`.
+
+If the Next dev server does not bind to port 3000:
+
+```bash
+cd /Users/caleb/Documents/docforge-ai/frontend
+npm run dev -- -p 3000
+```
+
+If the command starts but never prints a local URL and `lsof -nP -iTCP:3000 -sTCP:LISTEN` shows nothing, use the production demo fallback:
+
+```bash
+npm run build
+npm run start -- -p 3000
+```
+
+If the port is already used, stop the old process or temporarily run:
+
+```bash
+npm run dev -- -p 3001
+```
+
+Then set the frontend API URL only if needed:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev -- -p 3001
+```
+
+## Start The Demo
+
+Backend:
+
+```bash
+cd /Users/caleb/Documents/docforge-ai
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Frontend:
+
+```bash
+cd /Users/caleb/Documents/docforge-ai/frontend
+npm install
+npm run dev -- -p 3000
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+## Demo Checklist
+
+1. Start backend on port 8000.
+2. Start frontend on port 3000.
+3. Open the document workspace.
+4. Choose a goal such as `AI Knowledge Base` or `RAG Dataset`.
+5. Test single conversion with a PDF.
+6. Open each output tab: Markdown, Rendered Preview, Clean HTML, Structured JSON, Plain Text, Images, Processing Report.
+7. Click `Download Complete Package`.
+8. Test batch conversion with two PDFs if sample files are available.
+9. Confirm the ZIP includes a batch processing report.
+10. Submit the bulk conversion form.
+11. Inspect saved leads:
+
+```bash
+tail -n 5 /Users/caleb/Documents/docforge-ai/storage/leads/leads.jsonl
+```
+
+## What The Complete Package Includes
+
+Single conversion package:
+
+```text
+document.md
+document.html
+document.json
+document.txt
+processing-report.md
+selected-goal-output.md
+images/
+```
+
+Batch package:
+
+```text
+markdown/
+html/
+json/
+text/
+goal-output/
+reports/
+batch-processing-report.md
+_summary.json
+```
+
+## Goal-Based Deliverables
+
+The document workspace asks what the customer wants to create:
+
+- AI Knowledge Base
+- RAG Dataset
+- Study Guide
+- Technical Documentation
+- Blog Draft
+- Meeting Notes
+- Training Manual
+- Clean Markdown Export
+
+These are rule-based transformations for now. No LLM APIs are called.
 
 ## Architecture
 
@@ -14,7 +145,7 @@ flowchart LR
   D --> E[Exporter Service]
   D --> F[Preview Service]
   E --> G[Download Package]
-  F --> H[Frontend Workspace]
+  F --> H[Document Workspace]
 ```
 
 Request flow:
@@ -34,15 +165,15 @@ FastAPI route
 backend/
   main.py
   services/
-    parser.py        # PDF validation, Marker execution, normalized document creation
-    transformer.py   # Template rules, HTML/text/JSON transformation helpers
-    exporter.py      # Markdown, HTML, JSON, text, report, image, and package downloads
-    preview.py       # Frontend-ready metadata, pipeline, image, and report payloads
-    models.py        # Internal document and export dataclasses
+    parser.py
+    transformer.py
+    exporter.py
+    preview.py
+    models.py
 frontend/
   app/
-    page.tsx         # Document workspace, templates, previews, downloads, lead capture
-    globals.css      # Lightweight SaaS UI styling
+    page.tsx
+    globals.css
 storage/
   uploads/
   output/
@@ -52,18 +183,11 @@ storage/
 
 ## Unified Document Model
 
-The backend now normalizes each processed PDF into one internal `Document` object:
+Each processed PDF becomes one internal `Document` object:
 
 ```text
 Document
   metadata
-    job_id
-    filename
-    source_path
-    page_count
-    conversion_time_seconds
-    output_size_bytes
-    created_at
   pages
   sections
   headings
@@ -75,175 +199,86 @@ Document
   footnotes
 ```
 
-Downstream exports, metadata, image listings, reports, and frontend previews consume this model instead of passing raw Markdown through the app.
+Exports, reports, previews, and image handling consume this model instead of passing raw Markdown across the app.
 
-## Transformation Pipeline
+## Adding New Goals
 
-Current pipeline:
+Goal transformations live in `backend/services/transformer.py`.
 
-```text
-Upload -> Parse -> Transform -> Export -> Complete
-```
+To add a goal:
 
-Current transformation templates are rule-based and do not call any LLM APIs:
+1. Add a `TemplateKey` value in `backend/services/models.py`.
+2. Add a label in `TEMPLATE_LABELS`.
+3. Create a function that accepts `Document` and returns Markdown.
+4. Register it in `TEMPLATE_TRANSFORMERS`.
+5. Add a goal card in `frontend/app/page.tsx`.
 
-- General Markdown
-- RAG Dataset
-- Study Notes
-- Meeting Notes
-- Knowledge Base
-- Technical Documentation
-- Blog Draft
-- API Documentation
+## Adding New Exporters
 
-The template contract lives in `backend/services/transformer.py`. Add a template by:
+Export writing lives in `backend/services/exporter.py`.
 
-1. Adding the key to `TemplateKey` in `backend/services/models.py`.
-2. Adding a label to `TEMPLATE_LABELS`.
-3. Creating a transformer function that accepts `Document` and returns Markdown.
-4. Registering it in `TEMPLATE_TRANSFORMERS`.
-5. Adding the option to the frontend `templates` array.
+To add a format:
 
-## Output Formats
+1. Extend `OutputFormat` in `backend/services/models.py`.
+2. Add file extension and content handling in `backend/services/exporter.py`.
+3. Add the corresponding customer-facing output tab in `frontend/app/page.tsx`.
 
-Single conversion now generates:
+## Fastest First Payday Plan
 
-- Markdown
-- Clean HTML
-- Structured JSON
-- Plain text
-- Processing report
-- Extracted images ZIP when images exist
-- Full download package ZIP
+Sell the manual service first. Use the demo to show the customer one representative PDF, then quote a package to process the rest.
 
-Batch conversion now packages generated Markdown, JSON, HTML, text, and processing reports for each successful file.
+### What To Sell First
 
-Add a future exporter by:
+- Clean AI-ready Markdown for one messy PDF.
+- Report/manual conversion package with Markdown, JSON, HTML, text, and a processing report.
+- Bulk conversion package for a folder of PDFs, manuals, reports, or course materials.
+- Add-on: organize the results into a knowledge base or RAG-ready dataset.
 
-1. Extending `OutputFormat` in `backend/services/models.py`.
-2. Adding an extension and content writer in `backend/services/exporter.py`.
-3. Adding a download option in `frontend/app/page.tsx`.
+### Who To Contact First
 
-## Local Setup
+- Consultants with client reports and deliverables.
+- AI builders making assistants or retrieval demos.
+- Researchers with papers and PDFs.
+- Students with lecture PDFs or study materials.
+- Small teams with manuals, SOPs, policies, or onboarding docs.
+- Agencies handling document-heavy client projects.
 
-Create or activate the Python environment where Marker is installed:
+### How To Demo It
 
-```bash
-cd /Users/caleb/Documents/docforge-ai
-source .venv/bin/activate
-```
+1. Ask for one representative PDF.
+2. Choose the most relevant goal card.
+3. Process the document live.
+4. Show the metadata summary and pipeline status.
+5. Click through the output tabs.
+6. Download the complete package.
+7. Open the ZIP and show the named files.
+8. Offer to process the remaining files manually.
 
-If your Marker virtual environment lives somewhere else, activate that environment instead. The backend requires `marker_single` to be available in the active shell.
+### What To Charge Manually
 
-Install backend requirements and start FastAPI:
+- `$25` small document cleanup.
+- `$75-$150` report or manual conversion package.
+- `$250+` bulk conversion package.
 
-```bash
-pip install -r backend/requirements.txt
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Start the frontend in a second terminal:
-
-```bash
-cd /Users/caleb/Documents/docforge-ai/frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000`.
-
-## API
-
-Single conversion:
-
-```bash
-curl -F "file=@sample.pdf" \
-  "http://localhost:8000/convert?template=general_markdown"
-```
-
-Batch conversion:
-
-```bash
-curl -o docforge-batch.zip \
-  -F "files=@sample-a.pdf" \
-  -F "files=@sample-b.pdf" \
-  http://localhost:8000/convert-batch
-```
-
-Lead capture:
-
-```bash
-curl -X POST http://localhost:8000/lead \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Ada Lovelace",
-    "email": "ada@example.com",
-    "company": "Example Co",
-    "document_count": "25",
-    "document_type": "Technical manuals",
-    "message": "We need clean content for an AI knowledge base."
-  }'
-```
-
-Downloads are exposed by job ID:
-
-```text
-/download/{job_id}/markdown
-/download/{job_id}/html
-/download/{job_id}/json
-/download/{job_id}/text
-/download/{job_id}/report
-/download/{job_id}/images.zip
-/download/{job_id}/package
-/download/{job_id}/images/{filename}
-```
-
-## Future API Hooks
-
-The service boundaries are ready for future integrations without rewriting route handlers:
-
-- OpenAI
-- Claude
-- Gemini
-- Local LLMs
-- OCR enhancements
-- Embeddings
-- Vector databases
-
-Recommended future shape:
-
-```text
-services/
-  ai/
-    provider.py
-    openai_provider.py
-    claude_provider.py
-    gemini_provider.py
-  ocr.py
-  embeddings.py
-  vector_store.py
-```
+Raise prices for urgent turnaround, many files, scanned PDFs, or manual cleanup.
 
 ## Current Limitations
 
-- Local/private-demo only.
+- Private-demo/local operator workflow.
 - Marker runs synchronously inside each request.
 - Batch conversion processes files one by one.
 - Page count is estimated without adding a PDF parsing dependency.
-- Rule-based templates are intentionally simple.
+- Rule-based goals are intentionally simple.
 - No auth, billing, database, hosted storage, background worker, or admin dashboard.
 - Large or complex PDFs may take several minutes.
 - Output quality depends on Marker and source PDF quality.
 
-## Roadmap
+## Next Build
 
-- Background jobs for long conversions.
-- Persisted job history and document package browsing.
-- Admin lead review screen.
-- Template versioning and custom templates.
-- LLM-assisted enrichment behind the transformer interface.
-- OCR improvements for scanned PDFs.
-- Embeddings and vector database exports.
-- Hosted storage and secure customer delivery.
-- Billing after repeat demand is proven.
+The next build should focus on final demo polish only:
 
+- Add a small `/demo-samples` folder with safe test PDFs.
+- Add a local smoke-test script for conversion and ZIP inspection.
+- Add a lightweight lead review page if manual follow-up becomes painful.
+
+Do not add full SaaS infrastructure until a customer has paid or clearly committed.

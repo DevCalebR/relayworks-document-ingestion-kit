@@ -13,9 +13,9 @@ def format_export(exported: ExportedFile) -> dict:
 def pipeline_steps() -> list[dict[str, str]]:
     return [
         {"label": "Upload", "status": "complete"},
-        {"label": "Parse", "status": "complete"},
-        {"label": "Transform", "status": "complete"},
-        {"label": "Export", "status": "complete"},
+        {"label": "Read", "status": "complete"},
+        {"label": "Prepare", "status": "complete"},
+        {"label": "Package", "status": "complete"},
         {"label": "Complete", "status": "complete"},
     ]
 
@@ -75,4 +75,3 @@ def build_preview_response(
         "images_zip": format_export(images_zip) if images_zip else None,
         "package": format_export(package),
     }
-

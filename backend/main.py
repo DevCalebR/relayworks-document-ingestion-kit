@@ -15,11 +15,12 @@ from backend.services.exporter import (
     MEDIA_TYPES,
     write_download_package,
     write_exports,
+    write_goal_output,
     write_images_zip,
     write_report,
 )
 from backend.services.models import OutputFormat, TemplateKey
-from backend.services.parser import clean_process_output, detail_to_text, parse_upload_with_marker, safe_filename
+from backend.services.parser import parse_upload_with_marker, safe_filename
 from backend.services.preview import build_preview_response
 from backend.services.transformer import transform_document
 
@@ -56,6 +57,8 @@ class LeadRequest(BaseModel):
     company: str | None = Field(default=None, max_length=160)
     document_count: str = Field(min_length=1, max_length=80)
     document_type: str = Field(min_length=1, max_length=120)
+    goal: str = Field(min_length=1, max_length=160)
+    urgency: str = Field(min_length=1, max_length=120)
     message: str = Field(min_length=1, max_length=2000)
 
     @field_validator("email")
@@ -80,12 +83,12 @@ async def validation_exception_handler(_, exc: RequestValidationError):
     if missing_file:
         return JSONResponse(
             status_code=400,
-            content={"detail": "Please upload one PDF file using the form field 'file'."},
+            content={"detail": "Please choose one PDF file before processing."},
         )
     if missing_files:
         return JSONResponse(
             status_code=400,
-            content={"detail": "Please upload one or more PDF files using the form field 'files'."},
+            content={"detail": "Please choose one or more PDF files before processing."},
         )
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
@@ -95,13 +98,15 @@ async def process_upload(file: UploadFile, job_id: str, template: TemplateKey = 
     transformed = transform_document(document, template)
     export_dir = OUTPUT_DIR / job_id / "exports"
     exports = write_exports(transformed, document.metadata.filename, job_id, export_dir)
+    goal_output = write_goal_output(transformed, export_dir)
     report = write_report(transformed, document.metadata.filename, job_id, export_dir)
     images_zip = write_images_zip(job_id, document.images, ZIP_DIR)
-    package = write_download_package(job_id, exports, report, document.images, ZIP_DIR)
+    package = write_download_package(job_id, exports, report, goal_output, document.images, ZIP_DIR)
     return {
         "document": document,
         "transformed": transformed,
         "exports": exports,
+        "goal_output": goal_output,
         "report": report,
         "images_zip": images_zip,
         "package": package,
@@ -124,14 +129,12 @@ async def convert(file: UploadFile = File(...), template: TemplateKey = "general
             status_code=504,
             detail={
                 "message": "Document processing took too long for this file.",
-                "stdout": clean_process_output(exc.stdout),
-                "stderr": clean_process_output(exc.stderr),
             },
         ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Document processing failed unexpectedly: {exc}",
+            detail="Document processing could not complete. Please try another PDF or request bulk conversion.",
         ) from exc
 
 
@@ -158,6 +161,7 @@ async def convert_batch(files: list[UploadFile] = File(...)):
                     "json_path": exports["json"].path,
                     "html_path": exports["html"].path,
                     "text_path": exports["text"].path,
+                    "goal_path": result["goal_output"].path,
                     "report_path": result["report"].path,
                 }
             )
@@ -165,22 +169,21 @@ async def convert_batch(files: list[UploadFile] = File(...)):
             failures.append(
                 {
                     "filename": input_name,
-                    "error": detail_to_text(
-                        {
-                            "message": "Document processing took too long for this file.",
-                            "stdout": clean_process_output(exc.stdout),
-                            "stderr": clean_process_output(exc.stderr),
-                        }
-                    ),
+                    "error": "Processing took longer than expected. We can review this file through the bulk conversion service.",
                 }
             )
         except HTTPException as exc:
-            failures.append({"filename": input_name, "error": detail_to_text(exc.detail)})
+            failures.append(
+                {
+                    "filename": input_name,
+                    "error": "This file could not be processed automatically. Please review the PDF or include it in a bulk conversion request.",
+                }
+            )
         except Exception as exc:
             failures.append(
                 {
                     "filename": input_name,
-                    "error": f"Document processing failed unexpectedly: {exc}",
+                    "error": "This file could not be processed automatically. Please review the PDF or include it in a bulk conversion request.",
                 }
             )
 
@@ -189,9 +192,31 @@ async def convert_batch(files: list[UploadFile] = File(...)):
         "total_files": len(files),
         "successful_files": len(successes),
         "failed_files": len(failures),
+        "total_output_files": (len(successes) * 6) + 2,
         "filenames": [safe_filename(file.filename or "upload.pdf") for file in files],
         "errors": failures,
     }
+
+    batch_report = "\n".join(
+        [
+            "# Batch Processing Report",
+            "",
+            f"- Documents submitted: {summary['total_files']}",
+            f"- Documents processed: {summary['successful_files']}",
+            f"- Documents needing review: {summary['failed_files']}",
+            f"- Output files included: {summary['total_output_files']}",
+            "",
+            "## Files",
+            *[f"- {filename}" for filename in summary["filenames"]],
+            "",
+            "## Items Needing Review",
+            *(
+                [f"- {failure['filename']}: {failure['error']}" for failure in failures]
+                if failures
+                else ["- None"]
+            ),
+        ]
+    )
 
     used_names: set[str] = set()
     with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as zip_file:
@@ -202,15 +227,21 @@ async def convert_batch(files: list[UploadFile] = File(...)):
                 ("json_path", "json"),
                 ("html_path", "html"),
                 ("text_path", "text"),
+                ("goal_path", "goal-output"),
                 ("report_path", "reports"),
             ]:
                 output_path = Path(success[path_key])
-                arcname = f"{folder}/{output_path.name}"
+                arcname = (
+                    f"{folder}/{base}-selected-goal-output.md"
+                    if path_key == "goal_path"
+                    else f"{folder}/{output_path.name}"
+                )
                 if arcname in used_names:
                     arcname = f"{folder}/{base}-{len(used_names) + 1}{output_path.suffix}"
                 used_names.add(arcname)
                 zip_file.write(output_path, arcname)
         zip_file.writestr("_summary.json", json.dumps(summary, indent=2))
+        zip_file.writestr("batch-processing-report.md", batch_report)
 
     return FileResponse(
         zip_path,
@@ -234,8 +265,8 @@ async def download_output(job_id: str, download_type: str):
 
     export_dir = OUTPUT_DIR / job_id / "exports"
     if download_type == "report":
-        matches = sorted(export_dir.glob("*-processing-report.txt"))
-        media_type = "text/plain; charset=utf-8"
+        matches = sorted(export_dir.glob("*-processing-report.md"))
+        media_type = "text/markdown; charset=utf-8"
     else:
         extension = {"markdown": "md", "html": "html", "json": "json", "text": "txt"}[download_type]
         matches = sorted(export_dir.glob(f"*.{extension}"))
@@ -267,6 +298,8 @@ async def create_lead(lead: LeadRequest):
         "company": (lead.company or "").strip(),
         "document_count": lead.document_count.strip(),
         "document_type": lead.document_type.strip(),
+        "goal": lead.goal.strip(),
+        "urgency": lead.urgency.strip(),
         "message": lead.message.strip(),
     }
 
@@ -275,6 +308,6 @@ async def create_lead(lead: LeadRequest):
 
     return {
         "success": True,
-        "message": "Bulk conversion request saved locally.",
+        "message": "Bulk conversion request received.",
         "lead_id": record["id"],
     }
