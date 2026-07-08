@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-import re
 import subprocess
 from uuid import uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -11,6 +10,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
+
+from backend.services.exporter import (
+    MEDIA_TYPES,
+    write_download_package,
+    write_exports,
+    write_images_zip,
+    write_report,
+)
+from backend.services.models import OutputFormat, TemplateKey
+from backend.services.parser import clean_process_output, detail_to_text, parse_upload_with_marker, safe_filename
+from backend.services.preview import build_preview_response
+from backend.services.transformer import transform_document
 
 
 app = FastAPI(title="DocForge AI API")
@@ -35,6 +46,8 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 ZIP_DIR.mkdir(parents=True, exist_ok=True)
 LEADS_DIR.mkdir(parents=True, exist_ok=True)
+
+SUPPORTED_DOWNLOADS = {"markdown", "html", "json", "text", "report", "package", "images.zip"}
 
 
 class LeadRequest(BaseModel):
@@ -77,122 +90,40 @@ async def validation_exception_handler(_, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
-def safe_filename(filename: str) -> str:
-    name = Path(filename or "upload.pdf").name
-    name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._")
-    return name or "upload.pdf"
-
-
-def clean_process_output(value: str | None, limit: int = 4000) -> str:
-    if not value:
-        return ""
-    value = value.strip()
-    if len(value) <= limit:
-        return value
-    return value[-limit:]
-
-
-def validate_pdf(file: UploadFile) -> None:
-    filename = file.filename or ""
-    content_type = file.content_type or ""
-    if not filename.lower().endswith(".pdf") and content_type != "application/pdf":
-        raise HTTPException(
-            status_code=400,
-            detail="Please upload a PDF file. DocForge AI currently accepts .pdf files only.",
-        )
-
-
-async def convert_upload_to_markdown(file: UploadFile, job_id: str) -> dict:
-    validate_pdf(file)
-
-    original_name = safe_filename(file.filename or "upload.pdf")
-    upload_path = UPLOAD_DIR / f"{job_id}_{original_name}"
-    job_output_dir = OUTPUT_DIR / job_id
-    job_output_dir.mkdir(parents=True, exist_ok=True)
-
-    contents = await file.read()
-    if not contents:
-        raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
-    upload_path.write_bytes(contents)
-
-    result = subprocess.run(
-        ["marker_single", str(upload_path), "--output_dir", str(job_output_dir)],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        check=False,
-    )
-
-    if result.returncode != 0:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Marker failed to convert this PDF.",
-                "stdout": clean_process_output(result.stdout),
-                "stderr": clean_process_output(result.stderr),
-            },
-        )
-
-    markdown_files = sorted(job_output_dir.rglob("*.md"))
-    if not markdown_files:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Marker finished, but no Markdown file was found.",
-                "stdout": clean_process_output(result.stdout),
-                "stderr": clean_process_output(result.stderr),
-            },
-        )
-
-    markdown = markdown_files[0].read_text(encoding="utf-8")
-    download_name = f"{Path(original_name).stem}.md"
-
+async def process_upload(file: UploadFile, job_id: str, template: TemplateKey = "general_markdown") -> dict:
+    document = await parse_upload_with_marker(file, job_id, REPO_ROOT, UPLOAD_DIR, OUTPUT_DIR)
+    transformed = transform_document(document, template)
+    export_dir = OUTPUT_DIR / job_id / "exports"
+    exports = write_exports(transformed, document.metadata.filename, job_id, export_dir)
+    report = write_report(transformed, document.metadata.filename, job_id, export_dir)
+    images_zip = write_images_zip(job_id, document.images, ZIP_DIR)
+    package = write_download_package(job_id, exports, report, document.images, ZIP_DIR)
     return {
-        "success": True,
-        "filename": original_name,
-        "markdown": markdown,
-        "download_name": download_name,
-        "markdown_path": markdown_files[0],
+        "document": document,
+        "transformed": transformed,
+        "exports": exports,
+        "report": report,
+        "images_zip": images_zip,
+        "package": package,
+        "preview": build_preview_response(document, transformed, exports, report, images_zip, package),
     }
 
 
-def detail_to_text(detail: object) -> str:
-    if isinstance(detail, str):
-        return detail
-    if isinstance(detail, dict):
-        message = str(detail.get("message", "Conversion failed."))
-        stderr = clean_process_output(str(detail.get("stderr", "")))
-        stdout = clean_process_output(str(detail.get("stdout", "")))
-        parts = [message]
-        if stderr:
-            parts.append(f"stderr: {stderr}")
-        if stdout:
-            parts.append(f"stdout: {stdout}")
-        return "\n\n".join(parts)
-    return "Conversion failed."
-
-
 @app.post("/convert")
-async def convert(file: UploadFile = File(...)):
+async def convert(file: UploadFile = File(...), template: TemplateKey = "general_markdown"):
     if file is None:
         raise HTTPException(status_code=400, detail="Please upload one PDF file.")
 
     try:
-        result = await convert_upload_to_markdown(file, uuid4().hex)
-        return {
-            "success": True,
-            "filename": result["filename"],
-            "markdown": result["markdown"],
-            "download_name": result["download_name"],
-        }
+        result = await process_upload(file, uuid4().hex, template)
+        return result["preview"]
     except HTTPException:
         raise
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(
             status_code=504,
             detail={
-                "message": "Marker took too long to convert this PDF.",
+                "message": "Document processing took too long for this file.",
                 "stdout": clean_process_output(exc.stdout),
                 "stderr": clean_process_output(exc.stderr),
             },
@@ -200,7 +131,7 @@ async def convert(file: UploadFile = File(...)):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Conversion failed unexpectedly: {exc}",
+            detail=f"Document processing failed unexpectedly: {exc}",
         ) from exc
 
 
@@ -217,12 +148,17 @@ async def convert_batch(files: list[UploadFile] = File(...)):
     for index, file in enumerate(files, start=1):
         input_name = safe_filename(file.filename or f"upload-{index}.pdf")
         try:
-            result = await convert_upload_to_markdown(file, f"{batch_id}_{index}")
+            result = await process_upload(file, f"{batch_id}_{index}")
+            exports = result["exports"]
             successes.append(
                 {
-                    "filename": result["filename"],
-                    "download_name": result["download_name"],
-                    "markdown_path": result["markdown_path"],
+                    "filename": result["document"].metadata.filename,
+                    "download_name": exports["markdown"].filename,
+                    "markdown_path": exports["markdown"].path,
+                    "json_path": exports["json"].path,
+                    "html_path": exports["html"].path,
+                    "text_path": exports["text"].path,
+                    "report_path": result["report"].path,
                 }
             )
         except subprocess.TimeoutExpired as exc:
@@ -231,7 +167,7 @@ async def convert_batch(files: list[UploadFile] = File(...)):
                     "filename": input_name,
                     "error": detail_to_text(
                         {
-                            "message": "Marker took too long to convert this PDF.",
+                            "message": "Document processing took too long for this file.",
                             "stdout": clean_process_output(exc.stdout),
                             "stderr": clean_process_output(exc.stderr),
                         }
@@ -244,7 +180,7 @@ async def convert_batch(files: list[UploadFile] = File(...)):
             failures.append(
                 {
                     "filename": input_name,
-                    "error": f"Conversion failed unexpectedly: {exc}",
+                    "error": f"Document processing failed unexpectedly: {exc}",
                 }
             )
 
@@ -260,20 +196,65 @@ async def convert_batch(files: list[UploadFile] = File(...)):
     used_names: set[str] = set()
     with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as zip_file:
         for success in successes:
-            arcname = success["download_name"]
-            if arcname in used_names:
-                stem = Path(arcname).stem
-                arcname = f"{stem}-{len(used_names) + 1}.md"
-            used_names.add(arcname)
-            zip_file.write(success["markdown_path"], arcname)
+            base = Path(success["download_name"]).stem
+            for path_key, folder in [
+                ("markdown_path", "markdown"),
+                ("json_path", "json"),
+                ("html_path", "html"),
+                ("text_path", "text"),
+                ("report_path", "reports"),
+            ]:
+                output_path = Path(success[path_key])
+                arcname = f"{folder}/{output_path.name}"
+                if arcname in used_names:
+                    arcname = f"{folder}/{base}-{len(used_names) + 1}{output_path.suffix}"
+                used_names.add(arcname)
+                zip_file.write(output_path, arcname)
         zip_file.writestr("_summary.json", json.dumps(summary, indent=2))
 
     return FileResponse(
         zip_path,
         media_type="application/zip",
-        filename=f"docforge-markdown-{batch_id}.zip",
+        filename=f"docforge-documents-{batch_id}.zip",
         headers={"X-DocForge-Summary": json.dumps(summary)},
     )
+
+
+@app.get("/download/{job_id}/{download_type}")
+async def download_output(job_id: str, download_type: str):
+    if not job_id.replace("_", "").isalnum() or download_type not in SUPPORTED_DOWNLOADS:
+        raise HTTPException(status_code=404, detail="Download not found.")
+
+    if download_type == "package":
+        path = ZIP_DIR / f"docforge-package-{job_id}.zip"
+        return FileResponse(path, media_type="application/zip", filename=path.name)
+    if download_type == "images.zip":
+        path = ZIP_DIR / f"docforge-images-{job_id}.zip"
+        return FileResponse(path, media_type="application/zip", filename=path.name)
+
+    export_dir = OUTPUT_DIR / job_id / "exports"
+    if download_type == "report":
+        matches = sorted(export_dir.glob("*-processing-report.txt"))
+        media_type = "text/plain; charset=utf-8"
+    else:
+        extension = {"markdown": "md", "html": "html", "json": "json", "text": "txt"}[download_type]
+        matches = sorted(export_dir.glob(f"*.{extension}"))
+        media_type = MEDIA_TYPES[download_type]
+
+    if not matches:
+        raise HTTPException(status_code=404, detail="Download not found.")
+    return FileResponse(matches[0], media_type=media_type, filename=matches[0].name)
+
+
+@app.get("/download/{job_id}/images/{filename}")
+async def download_image(job_id: str, filename: str):
+    if not job_id.replace("_", "").isalnum():
+        raise HTTPException(status_code=404, detail="Image not found.")
+    safe_name = safe_filename(filename)
+    matches = sorted((OUTPUT_DIR / job_id).rglob(safe_name))
+    if not matches:
+        raise HTTPException(status_code=404, detail="Image not found.")
+    return FileResponse(matches[0], filename=safe_name)
 
 
 @app.post("/lead")
