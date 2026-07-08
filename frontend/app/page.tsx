@@ -77,6 +77,11 @@ type LeadForm = {
   message: string;
 };
 
+type LeadRecord = LeadForm & {
+  id: string;
+  created_at: string;
+};
+
 const emptyLeadForm: LeadForm = {
   name: "",
   email: "",
@@ -283,6 +288,9 @@ export default function Home() {
   const [leadStatus, setLeadStatus] = useState("");
   const [leadError, setLeadError] = useState("");
   const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [leadRequests, setLeadRequests] = useState<LeadRecord[]>([]);
+  const [leadReviewStatus, setLeadReviewStatus] = useState("Lead requests load on demand for private demos.");
+  const [isLoadingLeads, setIsLoadingLeads] = useState(false);
 
   const renderedPreview = useMemo(() => markdownToHtml(editableMarkdown), [editableMarkdown]);
   const batchSize = batchFiles.reduce((total, file) => total + file.size, 0);
@@ -469,6 +477,25 @@ export default function Home() {
     }
   }
 
+  async function loadLeadRequests() {
+    setIsLoadingLeads(true);
+    setLeadReviewStatus("Loading quote requests...");
+    try {
+      const response = await fetch(`${API_BASE_URL}/leads`);
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(errorMessageFromResponse(payload));
+      }
+      const leads = Array.isArray(payload.leads) ? (payload.leads as LeadRecord[]) : [];
+      setLeadRequests(leads);
+      setLeadReviewStatus(leads.length ? `${leads.length} quote requests found.` : "No quote requests saved yet.");
+    } catch (err) {
+      setLeadReviewStatus(err instanceof Error ? err.message : "Could not load quote requests.");
+    } finally {
+      setIsLoadingLeads(false);
+    }
+  }
+
   return (
     <main>
       <section className="hero" id="top">
@@ -482,6 +509,7 @@ export default function Home() {
             <a href="#use-cases">Use cases</a>
             <a href="#service">Service</a>
             <a href="#bulk">Bulk conversion</a>
+            <a href="#lead-requests">Lead Requests</a>
           </div>
         </nav>
 
@@ -918,6 +946,63 @@ export default function Home() {
           {leadStatus ? <p className="success-box">{leadStatus}</p> : null}
           {leadError ? <div className="error-box">{leadError}</div> : null}
         </form>
+      </section>
+
+      <section className="section lead-review-section" id="lead-requests">
+        <div className="section-heading">
+          <h2>Lead Requests</h2>
+          <p>
+            Private-demo operator view for saved quote requests. Use it after submitting the form
+            to plan follow-up and manual delivery.
+          </p>
+        </div>
+        <div className="lead-review-panel">
+          <div className="lead-review-toolbar">
+            <p>{leadReviewStatus}</p>
+            <button type="button" onClick={loadLeadRequests} disabled={isLoadingLeads}>
+              {isLoadingLeads ? "Loading..." : "Refresh requests"}
+            </button>
+          </div>
+          {leadRequests.length ? (
+            <div className="lead-request-list">
+              {leadRequests.map((lead) => (
+                <article className="lead-request-card" key={lead.id}>
+                  <div>
+                    <h3>{lead.name}</h3>
+                    <p>{lead.email}</p>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Company</dt>
+                      <dd>{lead.company || "Not provided"}</dd>
+                    </div>
+                    <div>
+                      <dt>Document count</dt>
+                      <dd>{lead.document_count}</dd>
+                    </div>
+                    <div>
+                      <dt>Document type</dt>
+                      <dd>{lead.document_type}</dd>
+                    </div>
+                    <div>
+                      <dt>Goal</dt>
+                      <dd>{lead.goal}</dd>
+                    </div>
+                    <div>
+                      <dt>Urgency</dt>
+                      <dd>{lead.urgency}</dd>
+                    </div>
+                    <div>
+                      <dt>Created</dt>
+                      <dd>{new Date(lead.created_at).toLocaleString()}</dd>
+                    </div>
+                  </dl>
+                  <p className="lead-message">{lead.message}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </section>
     </main>
   );

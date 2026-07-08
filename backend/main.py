@@ -29,7 +29,7 @@ app = FastAPI(title="DocForge AI API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,6 +68,23 @@ class LeadRequest(BaseModel):
         if "@" not in value or "." not in value.rsplit("@", 1)[-1]:
             raise ValueError("Enter a valid email address.")
         return value
+
+
+def read_lead_records() -> list[dict]:
+    if not LEADS_FILE.exists():
+        return []
+
+    leads: list[dict] = []
+    with LEADS_FILE.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                leads.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return sorted(leads, key=lambda item: str(item.get("created_at", "")), reverse=True)
 
 
 @app.exception_handler(RequestValidationError)
@@ -310,4 +327,12 @@ async def create_lead(lead: LeadRequest):
         "success": True,
         "message": "Bulk conversion request received.",
         "lead_id": record["id"],
+    }
+
+
+@app.get("/leads")
+async def list_leads():
+    return {
+        "success": True,
+        "leads": read_lead_records(),
     }

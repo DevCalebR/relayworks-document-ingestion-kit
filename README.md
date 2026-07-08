@@ -87,10 +87,26 @@ http://localhost:3000
 8. Test batch conversion with two PDFs if sample files are available.
 9. Confirm the ZIP includes a batch processing report.
 10. Submit the bulk conversion form.
-11. Inspect saved leads:
+11. Open `Lead Requests` and click `Refresh requests`.
+12. Inspect saved leads directly if needed:
 
 ```bash
 tail -n 5 /Users/caleb/Documents/docforge-ai/storage/leads/leads.jsonl
+```
+
+## Final Demo Checklist
+
+- Backend running on port 8000.
+- Frontend running on port 3000.
+- Single conversion tested.
+- Batch conversion tested.
+- Complete package downloaded and opened.
+- Lead form submitted.
+- Lead review checked.
+- Smoke test run:
+
+```bash
+/Users/caleb/Documents/docforge-ai/scripts/smoke_test.sh
 ```
 
 ## What The Complete Package Includes
@@ -118,6 +134,23 @@ goal-output/
 reports/
 batch-processing-report.md
 _summary.json
+```
+
+## Samples And Smoke Test
+
+Sample PDF guidance lives in:
+
+```text
+samples/README.md
+```
+
+Private PDFs should not be committed. The `samples/` folder ignores PDFs by default; use `samples/sample.pdf` locally when you want the smoke test to exercise conversion.
+
+Run the smoke test:
+
+```bash
+cd /Users/caleb/Documents/docforge-ai
+scripts/smoke_test.sh
 ```
 
 ## Goal-Based Deliverables
@@ -262,6 +295,42 @@ Sell the manual service first. Use the demo to show the customer one representat
 
 Raise prices for urgent turnaround, many files, scanned PDFs, or manual cleanup.
 
+## Manual Delivery Workflow
+
+1. Receive the lead or quote request.
+2. Reply and ask for the source files.
+3. Process files in batch mode.
+4. Download the complete ZIP package.
+5. Review output quality before delivery.
+6. Send the ZIP package to the customer.
+7. Collect payment manually.
+
+## First Customer Outreach Copy
+
+### LinkedIn DM
+
+Hi {{name}}, I’m offering a fast document cleanup service for teams using AI tools. Send me a PDF, report, or manual and I’ll turn it into clean AI-ready Markdown, structured JSON, plain text, and a complete content package. Want me to process one sample file?
+
+### Short Email
+
+Subject: Clean AI-ready files from your PDFs
+
+Hi {{name}},
+
+I help teams turn messy PDFs, manuals, reports, and research docs into clean AI-ready content packages: Markdown, structured JSON, HTML, plain text, extracted images, and a processing report.
+
+If you send one sample PDF, I can show you what the finished package looks like and quote the rest.
+
+Small cleanup starts at $25, report/manual packages are usually $75-$150, and bulk packages start at $250.
+
+### Fiverr/Upwork Gig Description
+
+I will convert your PDFs, manuals, reports, or research documents into clean AI-ready content packages. Delivery can include Markdown, structured JSON, clean HTML, plain text, extracted images, and a processing report. Best for AI knowledge bases, RAG datasets, study guides, training material, and technical documentation.
+
+### Simple Pricing Message
+
+Pricing starts at $25 for a small cleanup, $75-$150 for a report or manual conversion package, and $250+ for bulk document conversion. Final price depends on file count, length, urgency, scan quality, and cleanup needs.
+
 ## Current Limitations
 
 - Private-demo/local operator workflow.
@@ -275,10 +344,10 @@ Raise prices for urgent turnaround, many files, scanned PDFs, or manual cleanup.
 
 ## Next Build
 
-The next build should focus on final demo polish only:
+The next build should happen after sales conversations reveal a real bottleneck:
 
-- Add a small `/demo-samples` folder with safe test PDFs.
-- Add a local smoke-test script for conversion and ZIP inspection.
-- Add a lightweight lead review page if manual follow-up becomes painful.
+- Add a safe committed sample PDF only if one is truly public and tiny.
+- Add a small local lead status field if follow-up tracking becomes painful.
+- Add a one-page invoice template for manual payment requests.
 
 Do not add full SaaS infrastructure until a customer has paid or clearly committed.

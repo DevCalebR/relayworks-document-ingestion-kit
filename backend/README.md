@@ -96,6 +96,10 @@ Payload fields:
 - `urgency`
 - `message`
 
+### `GET /leads`
+
+Returns saved quote requests for the local/private-demo lead review view. This is intentionally unauthenticated for the manual demo workflow and should not be exposed as a hosted public admin surface.
+
 ## Notes
 
 - Uploads are saved to `storage/uploads/`.
