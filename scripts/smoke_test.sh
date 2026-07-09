@@ -23,7 +23,7 @@ skip() {
   SKIP_COUNT=$((SKIP_COUNT + 1))
 }
 
-printf "DocForge AI smoke test\n"
+printf "RelayWorks smoke test\n"
 printf "Repo: %s\n\n" "$ROOT_DIR"
 
 if python - <<'PY' >/dev/null 2>&1
@@ -51,7 +51,7 @@ fi
 
 if [ -f samples/sample.pdf ]; then
   if curl -fsS http://127.0.0.1:8000/docs >/dev/null 2>&1; then
-    code="$(curl -sS -o /tmp/docforge-smoke-convert.json -w '%{http_code}' \
+    code="$(curl -sS -o /tmp/relayworks-smoke-convert.json -w '%{http_code}' \
       -F "file=@samples/sample.pdf" \
       "http://127.0.0.1:8000/convert?template=knowledge_base" || true)"
     if [ "$code" = "200" ]; then

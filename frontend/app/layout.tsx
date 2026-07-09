@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DocForge AI",
+  title: "RelayWorks",
   description: "Convert PDFs into clean AI-ready Markdown",
 };
 

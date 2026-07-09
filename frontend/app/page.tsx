@@ -389,7 +389,7 @@ export default function Home() {
       }
 
       const zipBlob = await response.blob();
-      const summaryHeader = response.headers.get("X-DocForge-Summary");
+      const summaryHeader = response.headers.get("X-RelayWorks-Summary");
       const parsedSummary = summaryHeader
         ? (JSON.parse(summaryHeader) as BatchSummary)
         : {
@@ -406,7 +406,7 @@ export default function Home() {
       setBatchStatus(
         `Bulk package complete: ${parsedSummary.successful_files} succeeded, ${parsedSummary.failed_files} need review.`,
       );
-      downloadBlob(zipBlob, `docforge-documents-${parsedSummary.batch_id || "batch"}.zip`);
+      downloadBlob(zipBlob, `relayworks-documents-${parsedSummary.batch_id || "batch"}.zip`);
     } catch (err) {
       setBatchStatus("Bulk document processing could not complete.");
       setError(err instanceof Error ? err.message : "Bulk document processing could not complete.");
@@ -500,9 +500,9 @@ export default function Home() {
     <main>
       <section className="hero" id="top">
         <nav className="nav" aria-label="Main navigation">
-          <a className="brand-row" href="#top" aria-label="DocForge AI home">
-            <span className="mark">D</span>
-            <span>DocForge AI</span>
+          <a className="brand-row" href="#top" aria-label="RelayWorks home">
+            <span className="mark">R</span>
+            <span>RelayWorks</span>
           </a>
           <div className="nav-links">
             <a href="#converter">Workspace</a>
@@ -517,7 +517,7 @@ export default function Home() {
           <div className="hero-copy">
             <h1>Turn complex documents into AI-ready content packages.</h1>
             <p>
-              DocForge AI turns PDFs, reports, and manuals into knowledge-ready content,
+              RelayWorks turns PDFs, reports, and manuals into knowledge-ready content,
               structured files, extracted images, and complete download packages for AI workflows.
             </p>
             <div className="cta-row">
@@ -530,7 +530,7 @@ export default function Home() {
             </div>
           </div>
 
-          <aside className="hero-proof" aria-label="DocForge AI workflow">
+          <aside className="hero-proof" aria-label="RelayWorks workflow">
             <div className="workflow-card">
               {["Upload", "Read", "Prepare", "Package", "Complete"].map((step, index) => (
                 <div key={step}>
@@ -798,7 +798,7 @@ export default function Home() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => batchZip && downloadBlob(batchZip, `docforge-documents-${batchSummary.batch_id || "batch"}.zip`)}
+                  onClick={() => batchZip && downloadBlob(batchZip, `relayworks-documents-${batchSummary.batch_id || "batch"}.zip`)}
                   disabled={!batchZip}
                 >
                   Download package again

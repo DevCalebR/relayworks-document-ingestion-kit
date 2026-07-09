@@ -46,7 +46,7 @@ def validate_pdf(file: UploadFile) -> None:
     if not filename.lower().endswith(".pdf") and content_type != "application/pdf":
         raise HTTPException(
             status_code=400,
-            detail="Please upload a PDF file. DocForge AI currently accepts .pdf files only.",
+            detail="Please upload a PDF file. RelayWorks currently accepts .pdf files only.",
         )
 
 

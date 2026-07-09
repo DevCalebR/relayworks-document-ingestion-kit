@@ -25,7 +25,7 @@ from backend.services.preview import build_preview_response
 from backend.services.transformer import transform_document
 
 
-app = FastAPI(title="DocForge AI API")
+app = FastAPI(title="RelayWorks API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,7 +33,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-DocForge-Summary"],
+    expose_headers=["X-RelayWorks-Summary"],
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -161,7 +161,7 @@ async def convert_batch(files: list[UploadFile] = File(...)):
         raise HTTPException(status_code=400, detail="Please upload at least one PDF file.")
 
     batch_id = uuid4().hex
-    zip_path = ZIP_DIR / f"docforge-batch-{batch_id}.zip"
+    zip_path = ZIP_DIR / f"relayworks-batch-{batch_id}.zip"
     successes: list[dict] = []
     failures: list[dict] = []
 
@@ -263,8 +263,8 @@ async def convert_batch(files: list[UploadFile] = File(...)):
     return FileResponse(
         zip_path,
         media_type="application/zip",
-        filename=f"docforge-documents-{batch_id}.zip",
-        headers={"X-DocForge-Summary": json.dumps(summary)},
+        filename=f"relayworks-documents-{batch_id}.zip",
+        headers={"X-RelayWorks-Summary": json.dumps(summary)},
     )
 
 
@@ -274,10 +274,10 @@ async def download_output(job_id: str, download_type: str):
         raise HTTPException(status_code=404, detail="Download not found.")
 
     if download_type == "package":
-        path = ZIP_DIR / f"docforge-package-{job_id}.zip"
+        path = ZIP_DIR / f"relayworks-package-{job_id}.zip"
         return FileResponse(path, media_type="application/zip", filename=path.name)
     if download_type == "images.zip":
-        path = ZIP_DIR / f"docforge-images-{job_id}.zip"
+        path = ZIP_DIR / f"relayworks-images-{job_id}.zip"
         return FileResponse(path, media_type="application/zip", filename=path.name)
 
     export_dir = OUTPUT_DIR / job_id / "exports"

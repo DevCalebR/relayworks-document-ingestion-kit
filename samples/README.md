@@ -1,4 +1,4 @@
-# DocForge AI Samples
+# RelayWorks Samples
 
 Use this folder for tiny, safe demo PDFs only.
 

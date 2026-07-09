@@ -22,7 +22,7 @@ EXTENSIONS: dict[OutputFormat, str] = {
 
 
 def slugify_stem(filename: str) -> str:
-    stem = Path(filename).stem or "docforge-output"
+    stem = Path(filename).stem or "relayworks-output"
     return "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in stem).strip("-")
 
 
@@ -71,7 +71,7 @@ def write_report(
     stem = slugify_stem(filename)
     summary = transformed.summary
     lines = [
-        "# DocForge AI Processing Report",
+        "# RelayWorks Processing Report",
         "",
         "## Processing Summary",
         "",
@@ -106,7 +106,7 @@ def write_images_zip(job_id: str, images: list, zip_dir: Path) -> ExportedFile |
     if not images:
         return None
     zip_dir.mkdir(parents=True, exist_ok=True)
-    path = zip_dir / f"docforge-images-{job_id}.zip"
+    path = zip_dir / f"relayworks-images-{job_id}.zip"
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as zip_file:
         for image in images:
             image_path = Path(image.path)
@@ -130,7 +130,7 @@ def write_download_package(
     zip_dir: Path,
 ) -> ExportedFile:
     zip_dir.mkdir(parents=True, exist_ok=True)
-    path = zip_dir / f"docforge-package-{job_id}.zip"
+    path = zip_dir / f"relayworks-package-{job_id}.zip"
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as zip_file:
         package_names = {
             "markdown": "document.md",

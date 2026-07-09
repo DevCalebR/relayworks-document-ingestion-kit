@@ -1,6 +1,6 @@
-# DocForge AI Backend
+# RelayWorks Backend
 
-FastAPI backend for the DocForge AI document processing platform.
+FastAPI backend for the RelayWorks document processing platform.
 
 ## Service Layout
 
@@ -59,7 +59,7 @@ Accepts multiple PDFs as multipart form field `files` and returns a ZIP with gen
 Example:
 
 ```bash
-curl -o docforge-batch.zip \
+curl -o relayworks-batch.zip \
   -F "files=@sample-a.pdf" \
   -F "files=@sample-b.pdf" \
   http://localhost:8000/convert-batch

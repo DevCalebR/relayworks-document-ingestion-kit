@@ -1,6 +1,6 @@
-# DocForge AI
+# RelayWorks
 
-DocForge AI is a polished private-demo product for turning PDFs, reports, and manuals into AI-ready content packages. The goal is fastest first payday: sell done-for-you document conversion before adding full SaaS infrastructure.
+RelayWorks is a polished private-demo product for turning PDFs, reports, and manuals into AI-ready content packages. The goal is fastest first payday: sell done-for-you document conversion before adding full SaaS infrastructure.
 
 The current build supports single conversion, batch conversion, goal-based deliverables, Markdown/HTML/JSON/plain text outputs, extracted images, complete ZIP packages, processing reports, and lead capture.
 
@@ -8,13 +8,13 @@ Do not add Supabase, Stripe, auth, Redis, cloud storage, Docker, complex admin p
 
 ## Correct Local Path
 
-Use this repo path:
+Use the checked-out repo root:
 
 ```bash
-cd /Users/caleb/Documents/docforge-ai
+cd <repo-root>
 ```
 
-Avoid the older shorthand path `/Users/caleb/docforge-ai`; commands and storage paths in this project assume the `Documents/docforge-ai` location.
+Do not run commands from a nested virtualenv, generated output folder, or extracted archive copy. Commands and storage paths below assume the repo root.
 
 ## Runtime Notes
 
@@ -27,7 +27,7 @@ Avoid the older shorthand path `/Users/caleb/docforge-ai`; commands and storage 
 If the Next dev server does not bind to port 3000:
 
 ```bash
-cd /Users/caleb/Documents/docforge-ai/frontend
+cd <repo-root>/frontend
 npm run dev -- -p 3000
 ```
 
@@ -55,7 +55,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev -- -p 3001
 Backend:
 
 ```bash
-cd /Users/caleb/Documents/docforge-ai
+cd <repo-root>
 source .venv/bin/activate
 pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
@@ -64,7 +64,7 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 Frontend:
 
 ```bash
-cd /Users/caleb/Documents/docforge-ai/frontend
+cd <repo-root>/frontend
 npm install
 npm run dev -- -p 3000
 ```
@@ -91,7 +91,7 @@ http://localhost:3000
 12. Inspect saved leads directly if needed:
 
 ```bash
-tail -n 5 /Users/caleb/Documents/docforge-ai/storage/leads/leads.jsonl
+tail -n 5 storage/leads/leads.jsonl
 ```
 
 ## Final Demo Checklist
@@ -106,7 +106,7 @@ tail -n 5 /Users/caleb/Documents/docforge-ai/storage/leads/leads.jsonl
 - Smoke test run:
 
 ```bash
-/Users/caleb/Documents/docforge-ai/scripts/smoke_test.sh
+scripts/smoke_test.sh
 ```
 
 ## What The Complete Package Includes
@@ -149,7 +149,7 @@ Private PDFs should not be committed. The `samples/` folder ignores PDFs by defa
 Run the smoke test:
 
 ```bash
-cd /Users/caleb/Documents/docforge-ai
+cd <repo-root>
 scripts/smoke_test.sh
 ```
 
