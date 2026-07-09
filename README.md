@@ -1,117 +1,139 @@
-# RelayWorks
+# RelayWorks Document Ingestion Kit
 
-RelayWorks is a polished private-demo product for turning PDFs, reports, and manuals into AI-ready content packages. The goal is fastest first payday: sell done-for-you document conversion before adding full SaaS infrastructure.
+A source-owned FastAPI + Next.js document ingestion app for turning PDFs into clean Markdown, HTML, JSON, text, extracted images, reports, and downloadable packages.
 
-The current build supports single conversion, batch conversion, goal-based deliverables, Markdown/HTML/JSON/plain text outputs, extracted images, complete ZIP packages, processing reports, and lead capture.
+RelayWorks Document Ingestion Kit is intended for AI developers, technical founders, internal tools teams, and agencies building document-heavy workflows. It gives you a working local baseline for PDF ingestion without starting from an empty repository.
 
-Do not add Supabase, Stripe, auth, Redis, cloud storage, Docker, complex admin panels, or team accounts yet.
+## Problem
 
-## Correct Local Path
+Developers lose days or weeks building document ingestion pipelines from scratch.
 
-Use the checked-out repo root:
+A useful ingestion baseline usually needs upload handling, PDF parsing, Markdown output, alternate export formats, image extraction, batch processing, downloadable packages, reports, and a frontend for evaluating results. This repository packages those pieces into a source-owned app you can inspect, run, and adapt.
+
+## Who It Is For
+
+- AI developers building RAG, knowledge base, document QA, or content preparation workflows.
+- Technical founders who need a document ingestion baseline before building custom product logic.
+- Internal tools teams converting reports, manuals, and PDFs into reusable internal content.
+- Agencies delivering document cleanup, migration, or AI-readiness projects for clients.
+
+## What Is Included
+
+- FastAPI backend
+- Next.js frontend
+- Marker integration through `marker_single`
+- Single PDF workflow
+- Batch PDF workflow
+- Markdown export
+- HTML export
+- JSON export
+- Plain text export
+- Extracted images
+- Processing reports
+- Downloadable ZIP packages
+- Sample folder and sample guidance
+- Smoke test script
+- Project documentation
+
+## What It Is Not
+
+- Not a SaaS platform
+- Not an AI chatbot
+- Not a document management system
+- Not a promise of perfect extraction from every PDF
+- Not a hosted service
+
+## Requirements
+
+- Python 3.11 recommended
+- Node.js 20+ or 22+ recommended
+- npm
+- Marker installed in the active Python environment
+- `marker_single` available on the shell path used to start the backend
+- Local filesystem access for uploads, generated outputs, ZIPs, and lead capture files
+
+The app does not require API keys for the current local version.
+
+## Quickstart
+
+Clone the repository and enter the repo root:
 
 ```bash
-cd <repo-root>
+git clone https://github.com/DevCalebR/relayworks-document-ingestion-kit.git
+cd relayworks-document-ingestion-kit
 ```
 
-Do not run commands from a nested virtualenv, generated output folder, or extracted archive copy. Commands and storage paths below assume the repo root.
-
-## Runtime Notes
-
-- Frontend: Next.js 16.2.10.
-- Recommended Node: current active Node 20+ or 22+.
-- Backend: FastAPI with `marker_single` available in the active Python environment.
-- Frontend port: `3000`.
-- Backend port: `8000`.
-
-If the Next dev server does not bind to port 3000:
+Create or activate a Python environment where Marker is installed. If you already have a Marker-ready environment, activate that environment instead.
 
 ```bash
-cd <repo-root>/frontend
-npm run dev -- -p 3000
-```
-
-If the command starts but never prints a local URL and `lsof -nP -iTCP:3000 -sTCP:LISTEN` shows nothing, use the production demo fallback:
-
-```bash
-npm run build
-npm run start -- -p 3000
-```
-
-If the port is already used, stop the old process or temporarily run:
-
-```bash
-npm run dev -- -p 3001
-```
-
-Then set the frontend API URL only if needed:
-
-```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 npm run dev -- -p 3001
-```
-
-## Start The Demo
-
-Backend:
-
-```bash
-cd <repo-root>
+python -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
+```
+
+Confirm Marker is available:
+
+```bash
+marker_single --help
+```
+
+Start the backend:
+
+```bash
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Frontend:
+Start the frontend in a second terminal:
 
 ```bash
-cd <repo-root>/frontend
+cd frontend
 npm install
 npm run dev -- -p 3000
 ```
 
-Open:
+Open the app:
 
 ```text
 http://localhost:3000
 ```
 
-## Demo Checklist
+## Local Workflow
 
-1. Start backend on port 8000.
-2. Start frontend on port 3000.
+1. Start the FastAPI backend on port `8000`.
+2. Start the Next.js frontend on port `3000`.
 3. Open the document workspace.
-4. Choose a goal such as `AI Knowledge Base` or `RAG Dataset`.
-5. Test single conversion with a PDF.
-6. Open each output tab: Markdown, Rendered Preview, Clean HTML, Structured JSON, Plain Text, Images, Processing Report.
-7. Click `Download Complete Package`.
-8. Test batch conversion with two PDFs if sample files are available.
-9. Confirm the ZIP includes a batch processing report.
-10. Submit the bulk conversion form.
-11. Open `Lead Requests` and click `Refresh requests`.
-12. Inspect saved leads directly if needed:
+4. Upload a PDF in single-file mode or multiple PDFs in batch mode.
+5. Review generated Markdown, rendered preview, HTML, JSON, plain text, images, and processing report.
+6. Download the complete package ZIP.
+7. Use the lead form only as a local/private-demo capture mechanism.
 
-```bash
-tail -n 5 storage/leads/leads.jsonl
-```
+## API Overview
 
-## Final Demo Checklist
+The backend exposes these primary endpoints:
 
-- Backend running on port 8000.
-- Frontend running on port 3000.
-- Single conversion tested.
-- Batch conversion tested.
-- Complete package downloaded and opened.
-- Lead form submitted.
-- Lead review checked.
-- Smoke test run:
+### `POST /convert`
 
-```bash
-scripts/smoke_test.sh
-```
+Accepts one PDF file and returns a preview response with metadata, pipeline status, generated content, export links, image links, report data, and package download link.
 
-## What The Complete Package Includes
+### `POST /convert-batch`
 
-Single conversion package:
+Accepts multiple PDF files and returns a ZIP package containing per-document outputs and a batch summary.
+
+### `GET /download/{job_id}/{download_type}`
+
+Downloads a generated output for a processed job. Supported download types include Markdown, HTML, JSON, text, report, package, and image ZIP where available.
+
+### `POST /lead`
+
+Stores a local bulk-conversion lead request in `storage/leads/leads.jsonl`.
+
+### `GET /leads`
+
+Returns locally captured lead records for private demo review.
+
+## Output Package Contents
+
+Single-document packages can include:
 
 ```text
 document.md
@@ -123,7 +145,7 @@ selected-goal-output.md
 images/
 ```
 
-Batch package:
+Batch packages can include:
 
 ```text
 markdown/
@@ -136,218 +158,80 @@ batch-processing-report.md
 _summary.json
 ```
 
-## Samples And Smoke Test
+Actual output depends on the input PDF and whether Marker extracts images from the file.
 
-Sample PDF guidance lives in:
-
-```text
-samples/README.md
-```
-
-Private PDFs should not be committed. The `samples/` folder ignores PDFs by default; use `samples/sample.pdf` locally when you want the smoke test to exercise conversion.
-
-Run the smoke test:
-
-```bash
-cd <repo-root>
-scripts/smoke_test.sh
-```
-
-## Goal-Based Deliverables
-
-The document workspace asks what the customer wants to create:
-
-- AI Knowledge Base
-- RAG Dataset
-- Study Guide
-- Technical Documentation
-- Blog Draft
-- Meeting Notes
-- Training Manual
-- Clean Markdown Export
-
-These are rule-based transformations for now. No LLM APIs are called.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  A[Document Upload] --> B[Parser Service]
-  B --> C[Unified Document Model]
-  C --> D[Transformer Service]
-  D --> E[Exporter Service]
-  D --> F[Preview Service]
-  E --> G[Download Package]
-  F --> H[Document Workspace]
-```
-
-Request flow:
-
-```text
-FastAPI route
-  -> service orchestration
-  -> parser
-  -> transformer
-  -> exporter
-  -> preview response
-```
-
-## Folder Structure
+## Repository Structure
 
 ```text
 backend/
-  main.py
-  services/
-    parser.py
-    transformer.py
-    exporter.py
-    preview.py
-    models.py
+  main.py                  FastAPI routes and orchestration
+  requirements.txt         Python dependencies
+  services/                Parser, transformer, exporter, preview, and models
 frontend/
-  app/
-    page.tsx
-    globals.css
-storage/
-  uploads/
-  output/
-  zips/
-  leads/
+  app/                     Next.js app UI and styling
+  package.json             Frontend scripts and dependencies
+samples/                   Safe sample guidance; private PDFs are ignored
+scripts/                   Local smoke test script
+storage/                   Local runtime data; uploads and outputs are ignored
 ```
 
-## Unified Document Model
+See `PROJECT_STRUCTURE.md` for a more detailed layout.
 
-Each processed PDF becomes one internal `Document` object:
+## Validation
+
+The current validation commands are:
+
+```bash
+python -m py_compile backend/main.py backend/services/*.py
+```
+
+```bash
+cd frontend
+npm run typecheck
+npm run build
+```
+
+A local smoke test is also available:
+
+```bash
+scripts/smoke_test.sh
+```
+
+The smoke test checks backend imports, expected local folders, Marker availability, and optionally runs a sample conversion when `samples/sample.pdf` exists and the backend is running.
+
+## Known Limitations
+
+- PDF-first support. Other document formats are not the current target.
+- Extraction quality depends on the input PDF and Marker behavior.
+- Some scanned, image-heavy, malformed, or layout-complex PDFs may need manual review.
+- Marker must be installed and working locally.
+- The backend processes jobs locally and synchronously.
+- Local storage is used for uploads, outputs, ZIPs, and leads.
+- This is not a hosted multi-user system.
+- No authentication, billing, cloud storage, background queue, or database is included.
+
+## Commercial Positioning
+
+RelayWorks Document Ingestion Kit is a professional source-code product for developers who want ownership and a working baseline. It is designed to be evaluated, modified, and extended by technical teams that need document ingestion inside their own product or internal workflow.
+
+The value is not a hosted account. The value is source ownership, a functioning FastAPI + Next.js baseline, and a practical document ingestion workflow that can be adapted to a buyer's stack.
+
+## Configuration Notes
+
+Environment examples are provided in:
 
 ```text
-Document
-  metadata
-  pages
-  sections
-  headings
-  paragraphs
-  tables
-  images
-  lists
-  code_blocks
-  footnotes
+.env.example
+backend/.env.example
+frontend/.env.example
 ```
 
-Exports, reports, previews, and image handling consume this model instead of passing raw Markdown across the app.
+No secrets are required for the current local version. Do not commit private PDFs, generated outputs, ZIP packages, lead data, or local environment files.
 
-## Adding New Goals
+## License
 
-Goal transformations live in `backend/services/transformer.py`.
+License terms are being finalized before public commercial release.
 
-To add a goal:
+## Support
 
-1. Add a `TemplateKey` value in `backend/services/models.py`.
-2. Add a label in `TEMPLATE_LABELS`.
-3. Create a function that accepts `Document` and returns Markdown.
-4. Register it in `TEMPLATE_TRANSFORMERS`.
-5. Add a goal card in `frontend/app/page.tsx`.
-
-## Adding New Exporters
-
-Export writing lives in `backend/services/exporter.py`.
-
-To add a format:
-
-1. Extend `OutputFormat` in `backend/services/models.py`.
-2. Add file extension and content handling in `backend/services/exporter.py`.
-3. Add the corresponding customer-facing output tab in `frontend/app/page.tsx`.
-
-## Fastest First Payday Plan
-
-Sell the manual service first. Use the demo to show the customer one representative PDF, then quote a package to process the rest.
-
-### What To Sell First
-
-- Clean AI-ready Markdown for one messy PDF.
-- Report/manual conversion package with Markdown, JSON, HTML, text, and a processing report.
-- Bulk conversion package for a folder of PDFs, manuals, reports, or course materials.
-- Add-on: organize the results into a knowledge base or RAG-ready dataset.
-
-### Who To Contact First
-
-- Consultants with client reports and deliverables.
-- AI builders making assistants or retrieval demos.
-- Researchers with papers and PDFs.
-- Students with lecture PDFs or study materials.
-- Small teams with manuals, SOPs, policies, or onboarding docs.
-- Agencies handling document-heavy client projects.
-
-### How To Demo It
-
-1. Ask for one representative PDF.
-2. Choose the most relevant goal card.
-3. Process the document live.
-4. Show the metadata summary and pipeline status.
-5. Click through the output tabs.
-6. Download the complete package.
-7. Open the ZIP and show the named files.
-8. Offer to process the remaining files manually.
-
-### What To Charge Manually
-
-- `$25` small document cleanup.
-- `$75-$150` report or manual conversion package.
-- `$250+` bulk conversion package.
-
-Raise prices for urgent turnaround, many files, scanned PDFs, or manual cleanup.
-
-## Manual Delivery Workflow
-
-1. Receive the lead or quote request.
-2. Reply and ask for the source files.
-3. Process files in batch mode.
-4. Download the complete ZIP package.
-5. Review output quality before delivery.
-6. Send the ZIP package to the customer.
-7. Collect payment manually.
-
-## First Customer Outreach Copy
-
-### LinkedIn DM
-
-Hi {{name}}, I’m offering a fast document cleanup service for teams using AI tools. Send me a PDF, report, or manual and I’ll turn it into clean AI-ready Markdown, structured JSON, plain text, and a complete content package. Want me to process one sample file?
-
-### Short Email
-
-Subject: Clean AI-ready files from your PDFs
-
-Hi {{name}},
-
-I help teams turn messy PDFs, manuals, reports, and research docs into clean AI-ready content packages: Markdown, structured JSON, HTML, plain text, extracted images, and a processing report.
-
-If you send one sample PDF, I can show you what the finished package looks like and quote the rest.
-
-Small cleanup starts at $25, report/manual packages are usually $75-$150, and bulk packages start at $250.
-
-### Fiverr/Upwork Gig Description
-
-I will convert your PDFs, manuals, reports, or research documents into clean AI-ready content packages. Delivery can include Markdown, structured JSON, clean HTML, plain text, extracted images, and a processing report. Best for AI knowledge bases, RAG datasets, study guides, training material, and technical documentation.
-
-### Simple Pricing Message
-
-Pricing starts at $25 for a small cleanup, $75-$150 for a report or manual conversion package, and $250+ for bulk document conversion. Final price depends on file count, length, urgency, scan quality, and cleanup needs.
-
-## Current Limitations
-
-- Private-demo/local operator workflow.
-- Marker runs synchronously inside each request.
-- Batch conversion processes files one by one.
-- Page count is estimated without adding a PDF parsing dependency.
-- Rule-based goals are intentionally simple.
-- No auth, billing, database, hosted storage, background worker, or admin dashboard.
-- Large or complex PDFs may take several minutes.
-- Output quality depends on Marker and source PDF quality.
-
-## Next Build
-
-The next build should happen after sales conversations reveal a real bottleneck:
-
-- Add a safe committed sample PDF only if one is truly public and tiny.
-- Add a small local lead status field if follow-up tracking becomes painful.
-- Add a one-page invoice template for manual payment requests.
-
-Do not add full SaaS infrastructure until a customer has paid or clearly committed.
+Support process will be finalized before commercial launch.
