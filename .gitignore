@@ -1,18 +1,34 @@
 .DS_Store
+*.zip
 
 # Python
 __pycache__/
+**/__pycache__/
 *.py[cod]
 .venv/
+venv/
 
 # Node / Next.js
+node_modules/
 frontend/node_modules/
+.next/
 frontend/.next/
+dist/
+build/
+*.tsbuildinfo
 frontend/tsconfig.tsbuildinfo
 
+# Generated cache/build artifacts
+.cache/
+.turbo/
+coverage/
+
 # Local document data
+storage/uploads/
 storage/uploads/*
+storage/output/
 storage/output/*
+storage/zips/
 storage/zips/*
 storage/leads/*
 
