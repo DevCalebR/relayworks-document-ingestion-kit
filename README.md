@@ -177,6 +177,12 @@ storage/                   Local runtime data; uploads and outputs are ignored
 
 See `PROJECT_STRUCTURE.md` for a more detailed layout.
 
+## Proof And Examples
+
+Buyer-facing proof materials are organized in `proof/`. The current pack includes the folder structure and sample requirements; actual PDFs should only be added when redistribution rights are clear.
+
+Use `SAMPLE_SELECTION_GUIDE.md` to choose safe sample PDFs and regenerate expected outputs. Use `INSTALLATION_PROOF.md` to review clean-checkout install and validation results.
+
 ## Validation
 
 The current validation commands are:
