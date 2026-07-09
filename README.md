@@ -230,7 +230,9 @@ No secrets are required for the current local version. Do not commit private PDF
 
 ## License
 
-License terms are being finalized before public commercial release.
+Commercial license terms are in draft form and must be finalized before paid release. See `LICENSE.md`.
+
+Third-party dependency notices are documented at a high level in `THIRD_PARTY_NOTICES.md`; final dependency/license review is required before commercial release.
 
 ## Support
 
