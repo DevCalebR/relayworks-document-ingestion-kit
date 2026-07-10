@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -48,6 +49,39 @@ def validate_pdf(file: UploadFile) -> None:
             status_code=400,
             detail="Please upload a PDF file. RelayWorks currently accepts .pdf files only.",
         )
+
+
+def marker_timeout_seconds() -> int:
+    value = os.getenv("MARKER_TIMEOUT_SECONDS", "3600")
+    try:
+        timeout = int(value)
+    except ValueError:
+        return 3600
+    return max(timeout, 1)
+
+
+def marker_command() -> str:
+    return os.getenv("MARKER_COMMAND", "marker_single")
+
+
+def max_upload_bytes() -> int:
+    value = os.getenv("MAX_UPLOAD_SIZE_MB", "100")
+    try:
+        megabytes = int(value)
+    except ValueError:
+        megabytes = 100
+    return max(megabytes, 1) * 1024 * 1024
+
+
+async def read_pdf_upload(file: UploadFile) -> bytes:
+    limit = max_upload_bytes()
+    contents = await file.read(limit + 1)
+    if len(contents) > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=f"PDF uploads are limited to {limit // (1024 * 1024)} MB in local mode.",
+        )
+    return contents
 
 
 def estimate_pdf_pages(contents: bytes) -> int:
@@ -198,32 +232,28 @@ def collect_images(job_output_dir: Path, job_id: str) -> list[DocumentImage]:
     return images
 
 
-async def parse_upload_with_marker(
-    file: UploadFile,
+def parse_pdf_with_marker(
+    upload_path: Path,
+    original_name: str,
     job_id: str,
     repo_root: Path,
-    upload_dir: Path,
     output_dir: Path,
+    contents: bytes | None = None,
 ) -> Document:
-    validate_pdf(file)
-
-    original_name = safe_filename(file.filename or "upload.pdf")
-    upload_path = upload_dir / f"{job_id}_{original_name}"
     job_output_dir = output_dir / job_id
     job_output_dir.mkdir(parents=True, exist_ok=True)
 
-    contents = await file.read()
+    contents = contents if contents is not None else upload_path.read_bytes()
     if not contents:
         raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
-    upload_path.write_bytes(contents)
 
     started = time.perf_counter()
     result = subprocess.run(
-        ["marker_single", str(upload_path), "--output_dir", str(job_output_dir)],
+        [marker_command(), str(upload_path), "--output_dir", str(job_output_dir)],
         cwd=repo_root,
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=marker_timeout_seconds(),
         check=False,
     )
     elapsed = time.perf_counter() - started
@@ -276,3 +306,22 @@ async def parse_upload_with_marker(
         footnotes=normalized["footnotes"],
     )
 
+
+async def parse_upload_with_marker(
+    file: UploadFile,
+    job_id: str,
+    repo_root: Path,
+    upload_dir: Path,
+    output_dir: Path,
+) -> Document:
+    validate_pdf(file)
+
+    original_name = safe_filename(file.filename or "upload.pdf")
+    upload_path = upload_dir / f"{job_id}_{original_name}"
+
+    contents = await read_pdf_upload(file)
+    if not contents:
+        raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
+    upload_path.write_bytes(contents)
+
+    return parse_pdf_with_marker(upload_path, original_name, job_id, repo_root, output_dir, contents)

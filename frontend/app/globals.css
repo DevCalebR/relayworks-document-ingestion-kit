@@ -865,7 +865,8 @@ p {
 }
 
 .error-box,
-.success-box {
+.success-box,
+.status-box {
   font-size: 14px;
   padding: 14px;
 }
@@ -882,6 +883,23 @@ p {
   border-radius: 8px;
   color: var(--success);
   font-weight: 750;
+}
+
+.status-box {
+  background: #f6f8fa;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.status-box strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.status-box p {
+  color: var(--muted);
+  margin: 0;
 }
 
 .batch-summary {

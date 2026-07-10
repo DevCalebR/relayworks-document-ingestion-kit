@@ -170,3 +170,17 @@ Documentation should continue to make the Marker dependency explicit because Mar
 - `npm audit` reports two moderate advisories in the current frontend dependency tree; these were not changed because this task does not modify dependencies.
 - Node v26.0.0 worked in this test, but README continues to recommend Node 20+ or 22+ for evaluator stability.
 - This proof validates install/build checks, not a full PDF conversion from a clean machine with a bundled sample PDF.
+
+## Current Workflow Note
+
+The primary single-PDF frontend workflow now uses `POST /jobs/convert`, polls `GET /jobs/{job_id}`, and reads completed outputs from the job response. Job metadata is stored locally in `storage/jobs/`.
+
+Configuration knobs for local evaluation:
+
+```text
+MARKER_TIMEOUT_SECONDS=3600
+CONVERSION_CONCURRENCY=1
+MAX_UPLOAD_SIZE_MB=100
+```
+
+`MARKER_TIMEOUT_SECONDS` is a Marker subprocess safety limit, not an HTTP timeout. If the backend stops while a job is queued or processing, startup/read recovery marks the job failed with an interrupted message.

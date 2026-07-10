@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -54,6 +54,24 @@ type ConvertResponse = {
   report: { text: string; download: ExportFile };
   images_zip: ExportFile | null;
   package: ExportFile;
+};
+
+type JobStage = "queued" | "preparing" | "parsing" | "transforming" | "exporting" | "packaging" | "completed" | "failed";
+
+type ConversionJob = {
+  job_id: string;
+  filename: string;
+  template: TemplateKey;
+  status: "queued" | "processing" | "completed" | "failed";
+  stage: JobStage;
+  message: string;
+  created_at?: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  error?: string | null;
+  status_url: string;
+  available_downloads?: Array<{ type: string; filename: string; size_bytes: number; url: string }>;
+  result?: ConvertResponse | null;
 };
 
 type BatchSummary = {
@@ -167,6 +185,24 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function stageLabel(stage: JobStage): string {
+  const labels: Record<JobStage, string> = {
+    queued: "Queued",
+    preparing: "Preparing document",
+    parsing: "Parsing PDF",
+    transforming: "Transforming content",
+    exporting: "Exporting files",
+    packaging: "Packaging outputs",
+    completed: "Complete",
+    failed: "Failed",
+  };
+  return labels[stage] ?? "Processing";
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -278,6 +314,7 @@ export default function Home() {
   const [result, setResult] = useState<ConvertResponse | null>(null);
   const [editableMarkdown, setEditableMarkdown] = useState("");
   const [singleStatus, setSingleStatus] = useState("Ready for a PDF.");
+  const [activeJob, setActiveJob] = useState<ConversionJob | null>(null);
   const [batchStatus, setBatchStatus] = useState("Ready for multiple PDFs.");
   const [error, setError] = useState("");
   const [isConverting, setIsConverting] = useState(false);
@@ -291,6 +328,7 @@ export default function Home() {
   const [leadRequests, setLeadRequests] = useState<LeadRecord[]>([]);
   const [leadReviewStatus, setLeadReviewStatus] = useState("Lead requests load on demand for private demos.");
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+  const pollTokenRef = useRef(0);
 
   const renderedPreview = useMemo(() => markdownToHtml(editableMarkdown), [editableMarkdown]);
   const batchSize = batchFiles.reduce((total, file) => total + file.size, 0);
@@ -299,9 +337,11 @@ export default function Home() {
 
   function onSingleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null;
+    pollTokenRef.current += 1;
     setSingleFile(nextFile);
     setError("");
     setResult(null);
+    setActiveJob(null);
     setEditableMarkdown("");
     setSingleStatus(nextFile ? "Document selected. Ready to process." : "Ready for a PDF.");
     setCopyState("Copy");
@@ -309,6 +349,7 @@ export default function Home() {
 
   function onBatchFilesChange(event: ChangeEvent<HTMLInputElement>) {
     const nextFiles = Array.from(event.target.files ?? []);
+    pollTokenRef.current += 1;
     setBatchFiles(nextFiles);
     setError("");
     setBatchSummary(null);
@@ -323,18 +364,22 @@ export default function Home() {
     }
 
     setMode("single");
+    const pollToken = pollTokenRef.current + 1;
+    pollTokenRef.current = pollToken;
+    const isCurrentPoll = () => pollTokenRef.current === pollToken;
     setIsConverting(true);
     setError("");
     setResult(null);
     setEditableMarkdown("");
-    setSingleStatus("Preparing your AI-ready document package...");
+    setActiveJob(null);
+    setSingleStatus("Uploading document...");
     setCopyState("Copy");
 
     const formData = new FormData();
     formData.append("file", singleFile);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/convert?template=${selectedTemplate}`, {
+      const response = await fetch(`${API_BASE_URL}/jobs/convert?template=${selectedTemplate}`, {
         method: "POST",
         body: formData,
       });
@@ -344,15 +389,52 @@ export default function Home() {
         throw new Error(errorMessageFromResponse(payload));
       }
 
-      const data = payload as ConvertResponse;
-      setResult(data);
-      setEditableMarkdown(data.markdown);
-      setSingleStatus(`${data.filename} is ready for AI workflows.`);
+      let job = payload as ConversionJob;
+      setActiveJob(job);
+      setSingleStatus(`${stageLabel(job.stage)}: ${job.message}`);
+
+      while (job.status === "queued" || job.status === "processing") {
+        await wait(2000);
+        if (!isCurrentPoll()) {
+          return;
+        }
+        const statusResponse = await fetch(`${API_BASE_URL}/jobs/${job.job_id}`);
+        const statusPayload = await statusResponse.json();
+        if (!statusResponse.ok) {
+          throw new Error(errorMessageFromResponse(statusPayload));
+        }
+        if (!isCurrentPoll()) {
+          return;
+        }
+        job = statusPayload as ConversionJob;
+        setActiveJob(job);
+        setSingleStatus(`${stageLabel(job.stage)}: ${job.message}`);
+      }
+
+      if (!isCurrentPoll()) {
+        return;
+      }
+
+      if (job.status === "failed") {
+        throw new Error(job.error || job.message || "Document processing could not complete.");
+      }
+
+      if (!job.result) {
+        throw new Error("The job completed, but no output package was returned.");
+      }
+
+      setResult(job.result);
+      setEditableMarkdown(job.result.markdown);
+      setSingleStatus(`${job.result.filename} is ready for AI workflows.`);
     } catch (err) {
-      setSingleStatus("Document processing could not complete.");
-      setError(err instanceof Error ? err.message : "Document processing could not complete.");
+      if (isCurrentPoll()) {
+        setSingleStatus("Document processing could not complete.");
+        setError(err instanceof Error ? err.message : "Document processing could not complete.");
+      }
     } finally {
-      setIsConverting(false);
+      if (isCurrentPoll()) {
+        setIsConverting(false);
+      }
     }
   }
 
@@ -363,6 +445,7 @@ export default function Home() {
     }
 
     setMode("batch");
+    pollTokenRef.current += 1;
     setIsConverting(true);
     setError("");
     setBatchSummary(null);
@@ -433,9 +516,11 @@ export default function Home() {
   }
 
   function resetConversion() {
+    pollTokenRef.current += 1;
     setSingleFile(null);
     setBatchFiles([]);
     setResult(null);
+    setActiveJob(null);
     setEditableMarkdown("");
     setSingleStatus("Ready for a PDF.");
     setBatchStatus("Ready for multiple PDFs.");
@@ -444,6 +529,7 @@ export default function Home() {
     setBatchSummary(null);
     setBatchZip(null);
     setActiveTab("markdown");
+    setIsConverting(false);
   }
 
   function updateLeadField(field: keyof LeadForm, value: string) {
@@ -664,7 +750,24 @@ export default function Home() {
             </div>
 
             <div className="pipeline-row">
-              {(result?.pipeline ?? ["Upload", "Read", "Prepare", "Package", "Complete"].map((label) => ({ label, status: "waiting" }))).map(
+              {(activeJob && !result
+                ? [
+                    "queued",
+                    "preparing",
+                    "parsing",
+                    "transforming",
+                    "exporting",
+                    "packaging",
+                    "completed",
+                  ].map((stage) => ({
+                    label: stageLabel(stage as JobStage),
+                    status:
+                      stage === activeJob.stage || activeJob.stage === "completed"
+                        ? "complete"
+                        : "waiting",
+                  }))
+                : result?.pipeline ?? ["Upload", "Read", "Prepare", "Package", "Complete"].map((label) => ({ label, status: "waiting" }))
+              ).map(
                 (step) => (
                   <span className={step.status === "complete" ? "pipeline-chip complete" : "pipeline-chip"} key={step.label}>
                     {step.label}
@@ -672,6 +775,13 @@ export default function Home() {
                 ),
               )}
             </div>
+
+            {activeJob && !result ? (
+              <div className={activeJob.status === "failed" ? "error-box" : "status-box"}>
+                <strong>{stageLabel(activeJob.stage)}</strong>
+                <p>{activeJob.message}</p>
+              </div>
+            ) : null}
 
             <div className="metadata-grid">
               {[
