@@ -64,6 +64,20 @@ class JobApiTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["available_downloads"][0]["type"], "markdown")
 
+    def test_oversized_background_upload_returns_413(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = JobStore(Path(tmp), process_id=101)
+            with (
+                patch.object(main, "job_store", store),
+                patch.dict("os.environ", {"MAX_UPLOAD_SIZE_MB": "1"}),
+            ):
+                response = TestClient(main.app).post(
+                    "/jobs/convert",
+                    files={"file": ("large.pdf", b"%PDF-" + (b"x" * 1024 * 1024), "application/pdf")},
+                )
+
+        self.assertEqual(response.status_code, 413)
+
 
 if __name__ == "__main__":
     unittest.main()

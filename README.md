@@ -266,9 +266,10 @@ Backend conversion settings:
 ```text
 MARKER_TIMEOUT_SECONDS=3600
 CONVERSION_CONCURRENCY=1
+MAX_UPLOAD_SIZE_MB=100
 ```
 
-`MARKER_TIMEOUT_SECONDS` is a Marker subprocess safety limit, not an HTTP request timeout. `CONVERSION_CONCURRENCY` controls how many local Marker jobs run at once and defaults to one worker for developer laptops.
+`MARKER_TIMEOUT_SECONDS` is a Marker subprocess safety limit, not an HTTP request timeout. `CONVERSION_CONCURRENCY` controls how many local Marker jobs run at once and defaults to one worker for developer laptops. `MAX_UPLOAD_SIZE_MB` keeps local PDF uploads bounded.
 
 ## License
 

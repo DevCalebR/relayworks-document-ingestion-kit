@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from backend.services.jobs import JobStore, available_downloads_from_result
+from backend.services.jobs import JobStore, available_downloads_from_result, safe_error_message
 
 
 class JobStoreTests(unittest.TestCase):
@@ -95,6 +95,15 @@ class JobStoreTests(unittest.TestCase):
 
             self.assertEqual(job["status"], "failed")
             self.assertEqual(job["stage"], "failed")
+
+    def test_tracebacks_are_omitted_from_ui_error_message(self) -> None:
+        message = safe_error_message(
+            'Marker could not process this document.\n\nTraceback (most recent call last):\n  File "marker.py", line 1\nValueError: boom'
+        )
+
+        self.assertIn("Marker could not process this document.", message)
+        self.assertIn("traceback that was omitted", message)
+        self.assertNotIn('File "marker.py"', message)
 
 
 if __name__ == "__main__":

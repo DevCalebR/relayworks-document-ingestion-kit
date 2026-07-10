@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -328,6 +328,7 @@ export default function Home() {
   const [leadRequests, setLeadRequests] = useState<LeadRecord[]>([]);
   const [leadReviewStatus, setLeadReviewStatus] = useState("Lead requests load on demand for private demos.");
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
+  const pollTokenRef = useRef(0);
 
   const renderedPreview = useMemo(() => markdownToHtml(editableMarkdown), [editableMarkdown]);
   const batchSize = batchFiles.reduce((total, file) => total + file.size, 0);
@@ -336,6 +337,7 @@ export default function Home() {
 
   function onSingleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null;
+    pollTokenRef.current += 1;
     setSingleFile(nextFile);
     setError("");
     setResult(null);
@@ -347,6 +349,7 @@ export default function Home() {
 
   function onBatchFilesChange(event: ChangeEvent<HTMLInputElement>) {
     const nextFiles = Array.from(event.target.files ?? []);
+    pollTokenRef.current += 1;
     setBatchFiles(nextFiles);
     setError("");
     setBatchSummary(null);
@@ -361,6 +364,9 @@ export default function Home() {
     }
 
     setMode("single");
+    const pollToken = pollTokenRef.current + 1;
+    pollTokenRef.current = pollToken;
+    const isCurrentPoll = () => pollTokenRef.current === pollToken;
     setIsConverting(true);
     setError("");
     setResult(null);
@@ -389,14 +395,24 @@ export default function Home() {
 
       while (job.status === "queued" || job.status === "processing") {
         await wait(2000);
+        if (!isCurrentPoll()) {
+          return;
+        }
         const statusResponse = await fetch(`${API_BASE_URL}/jobs/${job.job_id}`);
         const statusPayload = await statusResponse.json();
         if (!statusResponse.ok) {
           throw new Error(errorMessageFromResponse(statusPayload));
         }
+        if (!isCurrentPoll()) {
+          return;
+        }
         job = statusPayload as ConversionJob;
         setActiveJob(job);
         setSingleStatus(`${stageLabel(job.stage)}: ${job.message}`);
+      }
+
+      if (!isCurrentPoll()) {
+        return;
       }
 
       if (job.status === "failed") {
@@ -411,10 +427,14 @@ export default function Home() {
       setEditableMarkdown(job.result.markdown);
       setSingleStatus(`${job.result.filename} is ready for AI workflows.`);
     } catch (err) {
-      setSingleStatus("Document processing could not complete.");
-      setError(err instanceof Error ? err.message : "Document processing could not complete.");
+      if (isCurrentPoll()) {
+        setSingleStatus("Document processing could not complete.");
+        setError(err instanceof Error ? err.message : "Document processing could not complete.");
+      }
     } finally {
-      setIsConverting(false);
+      if (isCurrentPoll()) {
+        setIsConverting(false);
+      }
     }
   }
 
@@ -425,6 +445,7 @@ export default function Home() {
     }
 
     setMode("batch");
+    pollTokenRef.current += 1;
     setIsConverting(true);
     setError("");
     setBatchSummary(null);
@@ -495,6 +516,7 @@ export default function Home() {
   }
 
   function resetConversion() {
+    pollTokenRef.current += 1;
     setSingleFile(null);
     setBatchFiles([]);
     setResult(null);
@@ -507,6 +529,7 @@ export default function Home() {
     setBatchSummary(null);
     setBatchZip(null);
     setActiveTab("markdown");
+    setIsConverting(false);
   }
 
   function updateLeadField(field: keyof LeadForm, value: string) {

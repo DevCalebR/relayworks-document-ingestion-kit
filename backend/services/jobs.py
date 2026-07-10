@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 from typing import Any, Literal
 
 from .models import TemplateKey
@@ -35,6 +36,10 @@ def safe_error_message(value: object, limit: int = 1200) -> str:
     message = str(value).strip()
     if not message:
         return "Conversion failed."
+    if "Traceback (most recent call last):" in message:
+        message = message.split("Traceback (most recent call last):", 1)[0].strip()
+        message = f"{message}\n\nProcess output included a traceback that was omitted.".strip()
+    message = re.sub(r'^\s*File ".*", line \d+.*$', "Process stack frame omitted.", message, flags=re.MULTILINE)
     return message[:limit]
 
 

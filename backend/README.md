@@ -143,4 +143,5 @@ Returns saved quote requests for the local/private-demo lead review view. This i
 - CORS is configured for `http://localhost:3000`.
 - `MARKER_TIMEOUT_SECONDS` controls the Marker subprocess safety limit. It is not an HTTP request timeout.
 - `CONVERSION_CONCURRENCY` controls the local background worker pool and defaults to `1`.
+- `MAX_UPLOAD_SIZE_MB` controls the local PDF upload safety limit and defaults to `100`.
 - Queued or processing jobs found after a backend restart are marked failed with an interrupted message so the UI does not report work that is no longer running.

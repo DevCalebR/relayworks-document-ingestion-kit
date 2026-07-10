@@ -64,6 +64,26 @@ def marker_command() -> str:
     return os.getenv("MARKER_COMMAND", "marker_single")
 
 
+def max_upload_bytes() -> int:
+    value = os.getenv("MAX_UPLOAD_SIZE_MB", "100")
+    try:
+        megabytes = int(value)
+    except ValueError:
+        megabytes = 100
+    return max(megabytes, 1) * 1024 * 1024
+
+
+async def read_pdf_upload(file: UploadFile) -> bytes:
+    limit = max_upload_bytes()
+    contents = await file.read(limit + 1)
+    if len(contents) > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=f"PDF uploads are limited to {limit // (1024 * 1024)} MB in local mode.",
+        )
+    return contents
+
+
 def estimate_pdf_pages(contents: bytes) -> int:
     matches = re.findall(rb"/Type\s*/Page\b", contents)
     return max(len(matches), 1)
@@ -299,7 +319,7 @@ async def parse_upload_with_marker(
     original_name = safe_filename(file.filename or "upload.pdf")
     upload_path = upload_dir / f"{job_id}_{original_name}"
 
-    contents = await file.read()
+    contents = await read_pdf_upload(file)
     if not contents:
         raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
     upload_path.write_bytes(contents)

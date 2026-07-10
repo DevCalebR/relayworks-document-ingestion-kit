@@ -180,6 +180,7 @@ Configuration knobs for local evaluation:
 ```text
 MARKER_TIMEOUT_SECONDS=3600
 CONVERSION_CONCURRENCY=1
+MAX_UPLOAD_SIZE_MB=100
 ```
 
 `MARKER_TIMEOUT_SECONDS` is a Marker subprocess safety limit, not an HTTP timeout. If the backend stops while a job is queued or processing, startup/read recovery marks the job failed with an interrupted message.

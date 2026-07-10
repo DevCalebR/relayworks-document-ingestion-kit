@@ -23,7 +23,7 @@ from backend.services.exporter import (
 )
 from backend.services.jobs import JobStore, available_downloads_from_result, safe_error_message
 from backend.services.models import OutputFormat, TemplateKey
-from backend.services.parser import detail_to_text, parse_pdf_with_marker, parse_upload_with_marker, safe_filename, validate_pdf
+from backend.services.parser import detail_to_text, parse_pdf_with_marker, parse_upload_with_marker, read_pdf_upload, safe_filename, validate_pdf
 from backend.services.preview import build_preview_response
 from backend.services.transformer import transform_document
 
@@ -210,7 +210,7 @@ def run_conversion_job(job_id: str, upload_path: str, filename: str, template: T
 async def save_job_upload(file: UploadFile, job_id: str) -> tuple[str, Path]:
     validate_pdf(file)
     filename = safe_filename(file.filename or "upload.pdf")
-    contents = await file.read()
+    contents = await read_pdf_upload(file)
     if not contents:
         raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
     upload_path = UPLOAD_DIR / f"{job_id}_{filename}"
