@@ -1,5 +1,7 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
 from uuid import uuid4
@@ -19,8 +21,9 @@ from backend.services.exporter import (
     write_images_zip,
     write_report,
 )
+from backend.services.jobs import JobStore, available_downloads_from_result, safe_error_message
 from backend.services.models import OutputFormat, TemplateKey
-from backend.services.parser import parse_upload_with_marker, safe_filename
+from backend.services.parser import detail_to_text, parse_pdf_with_marker, parse_upload_with_marker, safe_filename, validate_pdf
 from backend.services.preview import build_preview_response
 from backend.services.transformer import transform_document
 
@@ -41,14 +44,29 @@ UPLOAD_DIR = REPO_ROOT / "storage" / "uploads"
 OUTPUT_DIR = REPO_ROOT / "storage" / "output"
 ZIP_DIR = REPO_ROOT / "storage" / "zips"
 LEADS_DIR = REPO_ROOT / "storage" / "leads"
+JOBS_DIR = REPO_ROOT / "storage" / "jobs"
 LEADS_FILE = LEADS_DIR / "leads.jsonl"
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 ZIP_DIR.mkdir(parents=True, exist_ok=True)
 LEADS_DIR.mkdir(parents=True, exist_ok=True)
+JOBS_DIR.mkdir(parents=True, exist_ok=True)
 
 SUPPORTED_DOWNLOADS = {"markdown", "html", "json", "text", "report", "package", "images.zip"}
+
+
+def conversion_concurrency() -> int:
+    value = os.getenv("CONVERSION_CONCURRENCY", "1")
+    try:
+        concurrency = int(value)
+    except ValueError:
+        return 1
+    return max(concurrency, 1)
+
+
+job_store = JobStore(JOBS_DIR)
+conversion_executor = ThreadPoolExecutor(max_workers=conversion_concurrency(), thread_name_prefix="relayworks-conversion")
 
 
 class LeadRequest(BaseModel):
@@ -110,6 +128,11 @@ async def validation_exception_handler(_, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
+@app.on_event("startup")
+async def recover_interrupted_jobs() -> None:
+    job_store.recover_interrupted()
+
+
 async def process_upload(file: UploadFile, job_id: str, template: TemplateKey = "general_markdown") -> dict:
     document = await parse_upload_with_marker(file, job_id, REPO_ROOT, UPLOAD_DIR, OUTPUT_DIR)
     transformed = transform_document(document, template)
@@ -131,6 +154,110 @@ async def process_upload(file: UploadFile, job_id: str, template: TemplateKey = 
     }
 
 
+def process_saved_upload(upload_path: Path, filename: str, job_id: str, template: TemplateKey = "general_markdown") -> dict:
+    job_store.mark_processing(job_id, "parsing", "Parsing PDF with Marker.")
+    document = parse_pdf_with_marker(upload_path, filename, job_id, REPO_ROOT, OUTPUT_DIR)
+
+    job_store.mark_processing(job_id, "transforming", "Transforming content for the selected goal.")
+    transformed = transform_document(document, template)
+    export_dir = OUTPUT_DIR / job_id / "exports"
+
+    job_store.mark_processing(job_id, "exporting", "Exporting Markdown, HTML, JSON, and text files.")
+    exports = write_exports(transformed, document.metadata.filename, job_id, export_dir)
+    goal_output = write_goal_output(transformed, export_dir)
+    report = write_report(transformed, document.metadata.filename, job_id, export_dir)
+
+    job_store.mark_processing(job_id, "packaging", "Packaging downloads.")
+    images_zip = write_images_zip(job_id, document.images, ZIP_DIR)
+    package = write_download_package(job_id, exports, report, goal_output, document.images, ZIP_DIR)
+
+    return {
+        "document": document,
+        "transformed": transformed,
+        "exports": exports,
+        "goal_output": goal_output,
+        "report": report,
+        "images_zip": images_zip,
+        "package": package,
+        "preview": build_preview_response(document, transformed, exports, report, images_zip, package),
+    }
+
+
+def job_error_message(exc: Exception, stage: str | None = None) -> str:
+    if isinstance(exc, subprocess.TimeoutExpired):
+        return "Processing exceeded the configured Marker safety limit."
+    if isinstance(exc, HTTPException):
+        return safe_error_message(detail_to_text(exc.detail))
+    if stage == "packaging":
+        return "The document finished processing, but package generation failed."
+    return "Marker could not process this document."
+
+
+def run_conversion_job(job_id: str, upload_path: str, filename: str, template: TemplateKey) -> None:
+    stage = "preparing"
+    try:
+        job_store.mark_processing(job_id, "preparing", "Preparing document for conversion.")
+        result = process_saved_upload(Path(upload_path), filename, job_id, template)
+        preview = result["preview"]
+        job_store.mark_completed(job_id, preview, available_downloads_from_result(preview))
+    except Exception as exc:
+        job = job_store.read(job_id)
+        if job:
+            stage = str(job.get("stage") or stage)
+        job_store.mark_failed(job_id, job_error_message(exc, stage))
+
+
+async def save_job_upload(file: UploadFile, job_id: str) -> tuple[str, Path]:
+    validate_pdf(file)
+    filename = safe_filename(file.filename or "upload.pdf")
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="The uploaded PDF is empty.")
+    upload_path = UPLOAD_DIR / f"{job_id}_{filename}"
+    upload_path.write_bytes(contents)
+    return filename, upload_path
+
+
+@app.post("/jobs/convert", status_code=202)
+async def create_conversion_job(file: UploadFile = File(...), template: TemplateKey = "general_markdown"):
+    if file is None:
+        raise HTTPException(status_code=400, detail="Please upload one PDF file.")
+
+    job_id = uuid4().hex
+    filename, upload_path = await save_job_upload(file, job_id)
+    job = job_store.create(job_id, filename, template, upload_path, OUTPUT_DIR / job_id)
+    conversion_executor.submit(run_conversion_job, job_id, str(upload_path), filename, template)
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+        "stage": job["stage"],
+        "message": job["message"],
+        "status_url": job["status_url"],
+    }
+
+
+@app.get("/jobs/{job_id}")
+async def get_conversion_job(job_id: str):
+    try:
+        job = job_store.read(job_id)
+    except ValueError:
+        job = None
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return job
+
+
+@app.get("/jobs/{job_id}/downloads")
+async def get_conversion_job_downloads(job_id: str):
+    try:
+        job = job_store.read(job_id)
+    except ValueError:
+        job = None
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return {"job_id": job_id, "available_downloads": job.get("available_downloads", [])}
+
+
 @app.post("/convert")
 async def convert(file: UploadFile = File(...), template: TemplateKey = "general_markdown"):
     if file is None:
@@ -145,7 +272,7 @@ async def convert(file: UploadFile = File(...), template: TemplateKey = "general
         raise HTTPException(
             status_code=504,
             detail={
-                "message": "Document processing took too long for this file.",
+                "message": "Processing exceeded the configured Marker safety limit. Use /jobs/convert for the recommended background workflow.",
             },
         ) from exc
     except Exception as exc:

@@ -22,7 +22,7 @@ A useful ingestion baseline usually needs upload handling, PDF parsing, Markdown
 - FastAPI backend
 - Next.js frontend
 - Marker integration through `marker_single`
-- Single PDF workflow
+- Background single-PDF workflow with honest job status
 - Batch PDF workflow
 - Markdown export
 - HTML export
@@ -103,17 +103,40 @@ http://localhost:3000
 2. Start the Next.js frontend on port `3000`.
 3. Open the document workspace.
 4. Upload a PDF in single-file mode or multiple PDFs in batch mode.
-5. Review generated Markdown, rendered preview, HTML, JSON, plain text, images, and processing report.
-6. Download the complete package ZIP.
-7. Use the lead form only as a local/private-demo capture mechanism.
+5. Single-file uploads create a local background job and the frontend polls for status.
+6. Review generated Markdown, rendered preview, HTML, JSON, plain text, images, and processing report.
+7. Download the complete package ZIP.
+8. Use the lead form only as a local/private-demo capture mechanism.
 
 ## API Overview
 
 The backend exposes these primary endpoints:
 
+### `POST /jobs/convert`
+
+Recommended single-PDF workflow. Accepts one PDF file, saves the upload, creates a local background job, starts conversion in a bounded local worker, and returns HTTP `202` immediately.
+
+The response includes:
+
+- `job_id`
+- `status`
+- `stage`
+- `message`
+- `status_url`
+
+### `GET /jobs/{job_id}`
+
+Returns the current job metadata. Supported statuses are `queued`, `processing`, `completed`, and `failed`. Stages are honest lifecycle labels such as `queued`, `preparing`, `parsing`, `transforming`, `exporting`, `packaging`, `completed`, and `failed`.
+
+The frontend polls this endpoint about every two seconds and stops when the job reaches `completed` or `failed`. Completed jobs include `available_downloads` and the preview/output payload under `result`.
+
+### `GET /jobs/{job_id}/downloads`
+
+Returns the available download options for the job.
+
 ### `POST /convert`
 
-Accepts one PDF file and returns a preview response with metadata, pipeline status, generated content, export links, image links, report data, and package download link.
+Legacy blocking endpoint for small-document compatibility. It accepts one PDF file and returns a preview response with metadata, pipeline status, generated content, export links, image links, report data, and package download link. The frontend uses `/jobs/convert` instead.
 
 ### `POST /convert-batch`
 
@@ -173,6 +196,7 @@ frontend/
 samples/                   Safe sample guidance; private PDFs are ignored
 scripts/                   Local smoke test script
 storage/                   Local runtime data; uploads and outputs are ignored
+  jobs/                    Local background job metadata
 ```
 
 See `PROJECT_STRUCTURE.md` for a more detailed layout.
@@ -211,7 +235,10 @@ The smoke test checks backend imports, expected local folders, Marker availabili
 - Extraction quality depends on the input PDF and Marker behavior.
 - Some scanned, image-heavy, malformed, or layout-complex PDFs may need manual review.
 - Marker must be installed and working locally.
-- The backend processes jobs locally and synchronously.
+- Single-PDF frontend conversions use local background jobs backed by JSON metadata files in `storage/jobs/`.
+- The legacy `/convert` endpoint still processes synchronously and is intended only for compatibility or small-document checks.
+- Local file-backed jobs are simple and source-code-buyer friendly, but they are not a distributed queue. They are best for local evaluation and single-machine deployments.
+- If the backend stops while a job is queued or processing, that job is marked failed/interrupted on startup or the next read instead of being shown as still processing.
 - Local storage is used for uploads, outputs, ZIPs, and leads.
 - This is not a hosted multi-user system.
 - No authentication, billing, cloud storage, background queue, or database is included.
@@ -233,6 +260,15 @@ frontend/.env.example
 ```
 
 No secrets are required for the current local version. Do not commit private PDFs, generated outputs, ZIP packages, lead data, or local environment files.
+
+Backend conversion settings:
+
+```text
+MARKER_TIMEOUT_SECONDS=3600
+CONVERSION_CONCURRENCY=1
+```
+
+`MARKER_TIMEOUT_SECONDS` is a Marker subprocess safety limit, not an HTTP request timeout. `CONVERSION_CONCURRENCY` controls how many local Marker jobs run at once and defaults to one worker for developer laptops.
 
 ## License
 

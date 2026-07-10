@@ -8,6 +8,8 @@ FastAPI backend for the RelayWorks document processing platform.
 main.py
   routes and request orchestration
 services/
+  jobs.py
+    stores local background job metadata and recovers interrupted jobs
   parser.py
     validates PDFs, calls Marker, returns the normalized Document model
   transformer.py
@@ -32,7 +34,38 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 ## API
 
+### `POST /jobs/convert`
+
+Recommended single-document workflow. Accepts one PDF upload as multipart form field `file`, saves it locally, creates a background job, and returns immediately with HTTP `202`.
+
+Response fields include:
+
+- `job_id`
+- `status`
+- `stage`
+- `message`
+- `status_url`
+
+Example:
+
+```bash
+curl -F "file=@sample.pdf" \
+  "http://localhost:8000/jobs/convert?template=knowledge_base"
+```
+
+### `GET /jobs/{job_id}`
+
+Returns current job metadata, including `queued`, `processing`, `completed`, or `failed` status. The frontend polls this endpoint about every two seconds and stops when the job reaches `completed` or `failed`.
+
+Completed jobs include `available_downloads` and the same preview payload previously returned by `/convert` under `result`.
+
+### `GET /jobs/{job_id}/downloads`
+
+Returns the available download options for a completed job.
+
 ### `POST /convert`
+
+Legacy blocking single-document workflow for small PDFs and compatibility testing.
 
 Accepts one PDF upload as multipart form field `file`, processes the document, and returns:
 
@@ -105,5 +138,9 @@ Returns saved quote requests for the local/private-demo lead review view. This i
 - Uploads are saved to `storage/uploads/`.
 - Processed output is written to unique folders under `storage/output/`.
 - ZIP files are saved to `storage/zips/`.
+- Background job metadata is saved as one JSON file per job under `storage/jobs/`.
 - Bulk conversion leads are appended to `storage/leads/leads.jsonl`.
 - CORS is configured for `http://localhost:3000`.
+- `MARKER_TIMEOUT_SECONDS` controls the Marker subprocess safety limit. It is not an HTTP request timeout.
+- `CONVERSION_CONCURRENCY` controls the local background worker pool and defaults to `1`.
+- Queued or processing jobs found after a backend restart are marked failed with an interrupted message so the UI does not report work that is no longer running.
