@@ -150,6 +150,39 @@ const pricing = [
   ["$250+ bulk package", "Multi-document conversion with download package and processing report."],
 ];
 
+const outputTypes = [
+  ["Markdown", "Clean source content for knowledge bases, documentation, and AI workflows."],
+  ["HTML", "Readable web output for review, publishing prep, or downstream formatting."],
+  ["Structured JSON", "Machine-readable document structure for retrieval and automation work."],
+  ["Plain text", "Lightweight extracted text for search, review, and simple pipelines."],
+  ["Images ZIP", "Extracted document images when the source PDF contains usable images."],
+  ["Processing report", "A compact summary of pages, words, headings, tables, images, and output files."],
+];
+
+const launchScreenshots = [
+  ["01-homepage.png", "Sales homepage", "Launch messaging and workspace entry point."],
+  ["02-goal-selection.png", "Goal selection", "Choose the output goal before conversion."],
+  ["03-upload-ready.png", "Upload ready", "Select a PDF and confirm the processing mode."],
+  ["04-job-processing.png", "Background processing", "Track the current conversion stage without blocking the page."],
+  ["05-conversion-complete.png", "Conversion complete", "Confirm document metrics and generated package status."],
+  ["06-markdown-output.png", "Markdown output", "Inspect and copy AI-ready Markdown."],
+  ["07-rendered-preview.png", "Rendered preview", "Review generated content in a readable preview."],
+  ["08-structured-json.png", "Structured JSON", "Review machine-readable output from the same PDF."],
+  ["09-processing-report.png", "Processing report", "Inspect the generated processing summary."],
+  ["10-extracted-images.png", "Extracted images", "Download images when Marker extracts them from the document."],
+  ["11-download-package.png", "Download package", "Collect generated files in one complete ZIP package."],
+  ["12-api-or-architecture-proof.png", "API and architecture proof", "Show the local app structure behind the workflow."],
+];
+
+const faqItems = [
+  ["What does RelayWorks process?", "The current product is PDF-first. It accepts PDF uploads and converts them into AI-ready document outputs."],
+  ["Does it process documents locally?", "Yes. The app is built to run on your machine or self-hosted environment, with local storage for uploads and outputs."],
+  ["Is this a SaaS product?", "No. RelayWorks is positioned as a downloadable, self-hosted source-code product."],
+  ["What do I get after conversion?", "Markdown, HTML, structured JSON, plain text, a processing report, and ZIP packages. Extracted images are included when available."],
+  ["Why not wire together open-source tools myself?", "You can, but RelayWorks packages the backend routes, frontend workflow, job handling, downloads, and launch-ready defaults into one codebase."],
+  ["Are API keys required?", "No API keys are required for the current local PDF conversion workflow."],
+];
+
 function errorMessageFromResponse(payload: unknown): string {
   if (payload && typeof payload === "object" && "detail" in payload) {
     const detail = (payload as { detail: unknown }).detail;
@@ -588,45 +621,254 @@ export default function Home() {
         <nav className="nav" aria-label="Main navigation">
           <a className="brand-row" href="#top" aria-label="RelayWorks home">
             <span className="mark">R</span>
-            <span>RelayWorks</span>
+            <span>RelayWorks AI Document Processing Kit</span>
           </a>
           <div className="nav-links">
+            <a href="#why">Why RelayWorks</a>
+            <a href="#outputs">Outputs</a>
+            <a href="#screenshots">Screenshots</a>
+            <a href="#faq">FAQ</a>
             <a href="#converter">Workspace</a>
-            <a href="#use-cases">Use cases</a>
-            <a href="#service">Service</a>
-            <a href="#bulk">Bulk conversion</a>
-            <a href="#lead-requests">Lead Requests</a>
           </div>
         </nav>
 
         <div className="hero-grid">
           <div className="hero-copy">
-            <h1>Turn complex documents into AI-ready content packages.</h1>
+            <p className="eyebrow">Self-hosted PDF conversion kit. Source code included.</p>
+            <h1>Turn PDFs into AI-ready content packages without building the pipeline yourself.</h1>
             <p>
-              RelayWorks turns PDFs, reports, and manuals into knowledge-ready content,
-              structured files, extracted images, and complete download packages for AI workflows.
+              RelayWorks helps developers, consultants, and AI teams save integration time by
+              packaging local PDF processing, background jobs, review screens, and downloads into
+              one inspectable codebase.
             </p>
             <div className="cta-row">
-              <a className="primary-link" href="#converter">
-                Open document workspace
+              <a className="primary-link" href="#cta">
+                Buy the kit
               </a>
-              <a className="secondary-link" href="#bulk">
-                Request bulk conversion
+              <a className="secondary-link" href="#screenshots">
+                View screenshots
               </a>
+            </div>
+            <div className="hero-points" aria-label="Key launch points">
+              <span>Local processing</span>
+              <span>AI-ready outputs</span>
+              <span>Self-hosted</span>
+              <span>Source code included</span>
             </div>
           </div>
 
-          <aside className="hero-proof" aria-label="RelayWorks workflow">
-            <div className="workflow-card">
-              {["Upload", "Read", "Prepare", "Package", "Complete"].map((step, index) => (
-                <div key={step}>
-                  <div className={index < 3 ? "workflow-step active" : "workflow-step"}>{step}</div>
-                  {index < 4 ? <div className="workflow-line" /> : null}
-                </div>
-              ))}
-            </div>
-            <pre className="mini-preview">{`Complete package\n\n- document.md\n- document.html\n- document.json\n- document.txt\n- selected-goal-output.md\n- processing-report.md`}</pre>
+          <aside className="hero-proof screenshot-frame" aria-label="RelayWorks workspace screenshot">
+            <img src="/marketing/screenshots/01-homepage.png" alt="RelayWorks homepage and document workspace" />
           </aside>
+        </div>
+      </section>
+
+      <section className="section problem-section" id="problem">
+        <div className="section-heading">
+          <h2>PDF-to-AI pipelines are slow to assemble.</h2>
+          <p>
+            Open-source tools are powerful, but production use still needs upload handling,
+            conversion orchestration, job status, output packaging, and a reviewable interface.
+          </p>
+        </div>
+        <div className="statement-grid">
+          {[
+            ["Integration work adds up", "Backend routes, file storage, subprocess handling, downloads, and UI states all need to fit together."],
+            ["Privacy gets complicated", "Many document workflows include contracts, manuals, research, or customer files that should not be sent to cloud tools by default."],
+            ["Outputs need structure", "AI workflows need clean Markdown, JSON, text, images, and reports instead of a single opaque conversion result."],
+          ].map(([title, description]) => (
+            <article className="plain-card" key={title}>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section why-section" id="why">
+        <div className="split-marketing">
+          <div>
+            <p className="label">Why RelayWorks</p>
+            <h2>Buy the working kit instead of stitching the stack together.</h2>
+            <p>
+              RelayWorks packages a PDF-first conversion workflow around Marker, with a local
+              FastAPI backend, Next.js frontend, background job status, and packaged outputs you can inspect.
+            </p>
+          </div>
+          <div className="proof-list">
+            {[
+              ["Save development time", "Start from a working app structure instead of a blank integration project."],
+              ["Eliminate glue work", "Upload, job status, conversion, output tabs, and ZIP downloads already share one flow."],
+              ["Keep control", "Run it locally or self-host it where your documents and source code remain under your control."],
+              ["Prepare AI-ready files", "Generate Markdown, HTML, JSON, text, reports, and image bundles from PDFs."],
+            ].map(([title, description]) => (
+              <div key={title}>
+                <strong>{title}</strong>
+                <span>{description}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section process-section" id="how-it-works">
+        <div className="section-heading">
+          <h2>How it works</h2>
+          <p>Upload a PDF, choose the intended output goal, let the background job run, then inspect and download the generated package.</p>
+        </div>
+        <div className="process-rail">
+          {["Choose a goal", "Upload PDF", "Process locally", "Review outputs", "Download ZIP"].map((step, index) => (
+            <div className="process-step" key={step}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <strong>{step}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section outputs-section" id="outputs">
+        <div className="section-heading">
+          <h2>Outputs generated</h2>
+          <p>RelayWorks creates practical files for AI builders, documentation workflows, and manual review.</p>
+        </div>
+        <div className="output-grid">
+          {outputTypes.map(([title, description]) => (
+            <article className="plain-card" key={title}>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section privacy-section" id="privacy">
+        <div className="split-marketing">
+          <div>
+            <p className="label">Privacy and local processing</p>
+            <h2>Keep sensitive PDFs out of hosted conversion services.</h2>
+          </div>
+          <p>
+            The current RelayWorks workflow runs as a local or self-hosted application. Uploads,
+            generated outputs, job metadata, and packages are stored in the local project storage
+            directories, so teams can process private documents without adding a cloud conversion dependency.
+          </p>
+        </div>
+      </section>
+
+      <section className="section" id="who-uses">
+        <div className="section-heading">
+          <h2>Who uses RelayWorks</h2>
+          <p>Built for people who need usable document conversion infrastructure, not a research project.</p>
+        </div>
+        <div className="use-case-grid">
+          {useCases.map(([title, description]) => (
+            <article className="plain-card" key={title}>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section screenshots-section" id="screenshots">
+        <div className="section-heading">
+          <h2>Product screenshots</h2>
+          <p>Real screens from the current repository, showing the workspace, conversion status, and generated outputs.</p>
+        </div>
+        <div className="screenshot-grid">
+          {launchScreenshots.map(([filename, title, description]) => (
+            <figure className="screenshot-card" key={filename}>
+              <img src={`/marketing/screenshots/${filename}`} alt={`RelayWorks ${title}`} loading="lazy" />
+              <figcaption>
+                <strong>{title}</strong>
+                <span>{description}</span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      <section className="section demo-section" id="demo">
+        <div className="demo-panel">
+          <div>
+            <p className="label">Demo video</p>
+            <h2>Show the complete PDF-to-package workflow.</h2>
+            <p>
+              The launch demo shows goal selection, upload, background processing, output review,
+              and package download in the local workflow.
+            </p>
+          </div>
+          <figure className="video-poster">
+            <img src="/marketing/screenshots/05-conversion-complete.png" alt="RelayWorks conversion complete screen" loading="lazy" />
+            <figcaption>Demo covers the same local workflow shown in the screenshots.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section className="section faq-section" id="faq">
+        <div className="section-heading">
+          <h2>FAQ</h2>
+          <p>Direct answers for buyers evaluating the downloadable kit.</p>
+        </div>
+        <div className="faq-list">
+          {faqItems.map(([question, answer]) => (
+            <details key={question}>
+              <summary>{question}</summary>
+              <p>{answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <section className="section cta-section" id="cta">
+        <div className="launch-cta">
+          <p className="label">Call to action</p>
+          <h2>Buy RelayWorks if you need a working local PDF-to-AI conversion kit now.</h2>
+          <p>
+            It is for teams that value source code access, self-hosted control, private document
+            processing, and practical generated outputs over another one-off integration project.
+          </p>
+          <div className="cta-row">
+            <a className="primary-link" href="#requirements">
+              Review requirements
+            </a>
+            <a className="secondary-link" href="#converter">
+              Open workspace preview
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="section requirements-section" id="requirements">
+        <div className="section-heading">
+          <h2>Requirements</h2>
+          <p>RelayWorks is a source-code product for local or self-hosted use.</p>
+        </div>
+        <div className="statement-grid">
+          {[
+            ["Runtime", "Python backend, Node.js frontend, and the project dependencies installed locally."],
+            ["Converter", "Marker command-line conversion through the configured marker_single command."],
+            ["Document support", "PDF uploads only in the current product workflow."],
+          ].map(([title, description]) => (
+            <article className="plain-card" key={title}>
+              <h3>{title}</h3>
+              <p>{description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section source-section" id="source-code">
+        <div className="split-marketing">
+          <div>
+            <p className="label">Source code included</p>
+            <h2>Inspect, modify, and self-host the workflow.</h2>
+          </div>
+          <p>
+            The kit includes the FastAPI backend, Next.js frontend, local job handling, conversion
+            routes, download routes, and frontend workspace code so buyers can adapt the implementation
+            instead of treating document processing as a black box.
+          </p>
         </div>
       </section>
 
@@ -928,192 +1170,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section" id="use-cases">
-        <div className="section-heading">
-          <h2>Built for document-heavy AI work</h2>
-          <p>Package source documents into formats teams can inspect, reuse, and operationalize.</p>
-        </div>
-        <div className="use-case-grid">
-          {useCases.map(([title, description]) => (
-            <article className="plain-card" key={title}>
-              <h3>{title}</h3>
-              <p>{description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section service-section" id="service">
-        <div className="section-heading">
-          <h2>Done-for-you bulk conversion</h2>
-          <p>
-            Send messy PDFs, reports, manuals, or research files and receive clean AI-ready
-            Markdown, structured content packages, extracted images, and processing summaries.
-          </p>
-        </div>
-        <div className="service-grid">
-          {[
-            ["Who it helps", "Teams, consultants, students, researchers, training groups, and AI builders."],
-            ["What you receive", "Knowledge-ready content packages with Markdown, JSON, HTML, plain text, and reports."],
-            ["Turnaround", "Fast manual delivery for small batches, with quote-based timing for larger document sets."],
-          ].map(([title, description]) => (
-            <article className="plain-card" key={title}>
-              <h3>{title}</h3>
-              <p>{description}</p>
-            </article>
-          ))}
-        </div>
-        <div className="service-cta">
-          <a className="primary-link" href="#bulk">
-            Request quote
-          </a>
-          <a className="secondary-link" href="#converter">
-            Try the workspace
-          </a>
-        </div>
-      </section>
-
-      <section className="section pricing-section" id="pricing">
-        <div className="section-heading">
-          <h2>Manual service pricing</h2>
-          <p>Simple starting prices for private demos and first customer conversations.</p>
-        </div>
-        <div className="pricing-grid">
-          {pricing.map(([title, description]) => (
-            <article className="pricing-card" key={title}>
-              <h3>{title}</h3>
-              <p>{description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section lead-section" id="bulk">
-        <div className="lead-copy">
-          <h2>Request bulk conversion</h2>
-          <p>
-            Send a document set for a structured conversion package with AI-ready content,
-            extracted images, and a processing report.
-          </p>
-        </div>
-
-        <form className="lead-form" onSubmit={submitLead}>
-          <div className="form-grid">
-            <label>
-              Name
-              <input required value={leadForm.name} onChange={(event) => updateLeadField("name", event.target.value)} />
-            </label>
-            <label>
-              Email
-              <input required type="email" value={leadForm.email} onChange={(event) => updateLeadField("email", event.target.value)} />
-            </label>
-            <label>
-              Company optional
-              <input value={leadForm.company} onChange={(event) => updateLeadField("company", event.target.value)} />
-            </label>
-            <label>
-              Approximate document count
-              <input required value={leadForm.document_count} onChange={(event) => updateLeadField("document_count", event.target.value)} />
-            </label>
-            <label>
-              Document type
-              <input
-                required
-                placeholder="Manuals, reports, research papers..."
-                value={leadForm.document_type}
-                onChange={(event) => updateLeadField("document_type", event.target.value)}
-              />
-            </label>
-            <label>
-              Goal/output needed
-              <select required value={leadForm.goal} onChange={(event) => updateLeadField("goal", event.target.value)}>
-                <option value="">Choose goal</option>
-                {goals.map((goal) => (
-                  <option value={goal.label} key={goal.key}>
-                    {goal.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Urgency
-              <select required value={leadForm.urgency} onChange={(event) => updateLeadField("urgency", event.target.value)}>
-                <option value="">Choose timing</option>
-                <option>24-48 hours</option>
-                <option>This week</option>
-                <option>This month</option>
-                <option>Planning ahead</option>
-              </select>
-            </label>
-          </div>
-          <label>
-            Message
-            <textarea required rows={5} value={leadForm.message} onChange={(event) => updateLeadField("message", event.target.value)} />
-          </label>
-          <button className="primary-button" type="submit" disabled={isSubmittingLead}>
-            {isSubmittingLead ? "Submitting..." : "Request bulk conversion"}
-          </button>
-          {leadStatus ? <p className="success-box">{leadStatus}</p> : null}
-          {leadError ? <div className="error-box">{leadError}</div> : null}
-        </form>
-      </section>
-
-      <section className="section lead-review-section" id="lead-requests">
-        <div className="section-heading">
-          <h2>Lead Requests</h2>
-          <p>
-            Private-demo operator view for saved quote requests. Use it after submitting the form
-            to plan follow-up and manual delivery.
-          </p>
-        </div>
-        <div className="lead-review-panel">
-          <div className="lead-review-toolbar">
-            <p>{leadReviewStatus}</p>
-            <button type="button" onClick={loadLeadRequests} disabled={isLoadingLeads}>
-              {isLoadingLeads ? "Loading..." : "Refresh requests"}
-            </button>
-          </div>
-          {leadRequests.length ? (
-            <div className="lead-request-list">
-              {leadRequests.map((lead) => (
-                <article className="lead-request-card" key={lead.id}>
-                  <div>
-                    <h3>{lead.name}</h3>
-                    <p>{lead.email}</p>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>Company</dt>
-                      <dd>{lead.company || "Not provided"}</dd>
-                    </div>
-                    <div>
-                      <dt>Document count</dt>
-                      <dd>{lead.document_count}</dd>
-                    </div>
-                    <div>
-                      <dt>Document type</dt>
-                      <dd>{lead.document_type}</dd>
-                    </div>
-                    <div>
-                      <dt>Goal</dt>
-                      <dd>{lead.goal}</dd>
-                    </div>
-                    <div>
-                      <dt>Urgency</dt>
-                      <dd>{lead.urgency}</dd>
-                    </div>
-                    <div>
-                      <dt>Created</dt>
-                      <dd>{new Date(lead.created_at).toLocaleString()}</dd>
-                    </div>
-                  </dl>
-                  <p className="lead-message">{lead.message}</p>
-                </article>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </section>
     </main>
   );
 }
