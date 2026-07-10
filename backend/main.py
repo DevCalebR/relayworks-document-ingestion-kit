@@ -395,6 +395,17 @@ async def convert_batch(files: list[UploadFile] = File(...)):
     )
 
 
+@app.get("/download/{job_id}/images/{filename}")
+async def download_image(job_id: str, filename: str):
+    if not job_id.replace("_", "").isalnum():
+        raise HTTPException(status_code=404, detail="Image not found.")
+    safe_name = Path(filename).name
+    matches = sorted((OUTPUT_DIR / job_id).rglob(safe_name))
+    if not matches:
+        raise HTTPException(status_code=404, detail="Image not found.")
+    return FileResponse(matches[0], filename=safe_name)
+
+
 @app.get("/download/{job_id}/{download_type}")
 async def download_output(job_id: str, download_type: str):
     if not job_id.replace("_", "").isalnum() or download_type not in SUPPORTED_DOWNLOADS:
@@ -419,17 +430,6 @@ async def download_output(job_id: str, download_type: str):
     if not matches:
         raise HTTPException(status_code=404, detail="Download not found.")
     return FileResponse(matches[0], media_type=media_type, filename=matches[0].name)
-
-
-@app.get("/download/{job_id}/images/{filename}")
-async def download_image(job_id: str, filename: str):
-    if not job_id.replace("_", "").isalnum():
-        raise HTTPException(status_code=404, detail="Image not found.")
-    safe_name = safe_filename(filename)
-    matches = sorted((OUTPUT_DIR / job_id).rglob(safe_name))
-    if not matches:
-        raise HTTPException(status_code=404, detail="Image not found.")
-    return FileResponse(matches[0], filename=safe_name)
 
 
 @app.post("/lead")
